@@ -1,5 +1,5 @@
 from re import L
-from statemachine import StateMachine
+from tokenize import Token
 import textwrap
 from enum import Enum, auto
 from typing import Callable, Any, Iterable, Generator
@@ -8,129 +8,11 @@ import os
 import sys
 from pathlib import Path
 
-class LispState(Enum):
-    START = auto()
-    LIST = auto()
-    EOF = auto()
-
-class LispEvent(Enum):
-    QOUTE = auto()
-    OPEN = auto()
-    ELEMENT = auto()
-    CLOSE = auto()
-    EOF = auto()
-
-class MissingElementError(Exception):
-    def __init__(self, msg : str):
-        super().__init__(msg)
-
-class BadStackError(Exception):
-    def __init__(self, msg : str):
-        super().__init__(msg)
-
-@dataclass
-class LispCtx:
-    lisp_stack: list[Any] = field(default_factory=list)
-    element : Any|None = None
-
-    def depth(self) -> int:
-        return len(self.lisp_stack)
-
-    def actual_lisp_list(self) -> list[Any]:
-        if len(self.lisp_stack) == 0:
-            raise MissingElementError("Missing list on stack")
-        return self.lisp_stack[-1]
-
-    def new_actual_lisp_list(self) -> None:
-        self.lisp_stack.append(list())
-
-    def pop_actual_lisp_list(self) -> list[Any]:
-        if len(self.lisp_stack) == 0:
-            raise MissingElementError("Missing element on stack")
-        return self.lisp_stack.pop()
-
-    def close_actual_lisp_list(self) -> None:
-        act_list = self.pop_actual_lisp_list()
-        if len(self.lisp_stack) == 0:
-            raise MissingElementError("Missing list on stack")
-        self.lisp_stack[-1].append(act_list)
-
-    def new_element(self) -> None:
-        if self.element is None:
-            raise MissingElementError("Element is None")
-        self.actual_lisp_list().append(self.element)
-        self.element = None
-
-@dataclass
-class LispParser:
-    lisp : LispCtx
-    state : LispState = LispState.START
-    debug : int = False
-
-    def handle(self, event: LispEvent) -> None:
-        if self.debug:
-            print(f"State {self.state} Event {event} Element = {self.lisp.element if self.lisp.element is not None else 'None'}")
-            print(f"     pre {self.lisp.depth()}")
-        self.state = lisp_sm.handle(self.lisp, self.state, event)
-        if self.debug:
-            print(f"    post {self.lisp.depth()}")
-            print(f"         {len(self.lisp.actual_lisp_list()) if self.lisp.depth()>0 else 'no top'}")
-
-    def parse(self, token_stream:Iterable[str]):
-        for token in token_stream:
-            if token == "(":
-                self.handle(LispEvent.OPEN)
-            elif token == ")":
-                self.handle(LispEvent.CLOSE)
-            elif token == "'":
-                self.handle(LispEvent.QOUTE)
-            else:
-                self.lisp.element = token
-                self.handle(LispEvent.ELEMENT)
-
-        self.handle(LispEvent.EOF)
-
-        return self.lisp.pop_actual_lisp_list()
-
-lisp_sm : StateMachine[LispState, LispEvent, LispCtx] = StateMachine()
-
-@lisp_sm.transition(LispState.START, LispEvent.OPEN, LispState.LIST)
-def start_list(ctx:LispCtx):
-    ctx.new_actual_lisp_list()
-    ctx.new_actual_lisp_list()
-
-@lisp_sm.transition(LispState.START, LispEvent.EOF, LispState.EOF)
-def start_list(ctx:LispCtx):
-    ctx.new_actual_lisp_list()
-
-@lisp_sm.transition(LispState.LIST, LispEvent.OPEN, LispState.LIST)
-def new_list(ctx:LispCtx):
-    ctx.new_actual_lisp_list()
-
-@lisp_sm.transition((LispState.START,LispState.LIST), LispEvent.EOF, LispState.EOF)
-def end_of_file(ctx:LispCtx):
-    if ctx.depth() < 1:
-        raise BadStackError(f"To many ')' in lisp expression ({ctx.depth()})")
-    if ctx.depth() > 1:
-        raise BadStackError(f"To many '(' in lisp expression ({ctx.depth()})")
-
-@lisp_sm.transition(LispState.LIST, LispEvent.ELEMENT, LispState.LIST)
-def new_element(ctx:LispCtx):
-    ctx.new_element()
-
-@lisp_sm.transition(LispState.LIST, LispEvent.CLOSE, LispState.LIST)
-def close_list(ctx:LispCtx):
-    ctx.close_actual_lisp_list()
-
 def tokenize(lisp_expression:str)->Generator[str, None, None]:
-    for token in lisp_expression.replace("(", " ( ").replace(")"," ) ").replace("' (", "'(").split():
-        try:
-            token = int(token)
-        except Exception:
-            try:
-                token = float(token)
-            except Exception:
-                pass
+    s = lisp_expression.replace("(", " ( ").replace(")"," ) ").replace("'", " ' ")
+    s = s.replace("`", " ` ").replace("'", " ' ")
+    
+    for token in s.split():
         yield token
 
 def tokenize_file(filename: Path)->Generator[str, None, None]:
@@ -138,6 +20,69 @@ def tokenize_file(filename: Path)->Generator[str, None, None]:
         for line in filehandle.readlines():
             yield from tokenize(line)
 
+def atom(token):
+    try:
+        return int(token)
+    except ValueError:
+        try:
+            return float(token)
+        except ValueError:
+            return token  # Symbol (z. B. '+', 'x')        
+
+def parse(tokens, program = list()):
+    class TokenStream:
+        def __init__(self, generator):
+            self.gen = generator
+            self.buffer = None
+    
+        def next(self):
+            if self.buffer is not None:
+                token = self.buffer
+                self.buffer = None
+                return token
+            return next(self.gen)
+    
+        def peek(self):
+            if self.buffer is None:
+                self.buffer = next(self.gen)
+            return self.buffer
+    
+    def parse_stream(token_stream):
+        token = token_stream.next()
+        
+        #print(token)
+    
+        if token == '(':
+            lst = []
+            while token_stream.peek() != ')':
+                lst.append(parse_stream(token_stream))
+            _ = token_stream.next()  # ')'
+            
+            #print(f"close list {lst}")
+            return lst
+    
+        elif token == ')':
+            raise SyntaxError("Unerwartetes )")
+    
+        elif token == "'":
+            return ['quote', parse_stream(token_stream)]
+    
+        elif token == '`':
+            return ['quasiquote', parse_stream(token_stream)]
+    
+        elif token == ',':
+            return ['unquote', parse_stream(token_stream)]
+    
+        else:
+            return atom(token)
+            
+    stream = TokenStream(tokens)
+    try:
+        while True:
+            program.append(parse_stream(stream))
+    except StopIteration:
+        return program
+            
 class Env:
     def __init__(self, parent = None):
         self.data = {}
@@ -183,8 +128,10 @@ class LispInterpreter:
             'lambda': self.create_lambda,
             'defun': self.define_function,
             'map': self.map,
-            "'": self.make_qoute,
-            'qoute': self.qoute,
+            'quote': self.qoute,
+            'quasiquote': self.quasiqoute,
+            'unquote': self.unqoute,
+            'eval': self.eval,
         }
         self.functions = {
             'begin': self.begin,
@@ -201,10 +148,11 @@ class LispInterpreter:
             'print': self.print,
             'car': self.car,
             'cdr': self.cdr,
+
         }
 
-    def run_rec(self, env:Env, expression: list[Any]):
-        #print(expression)
+    def run_rec(self, env:Env, expression: list[Any]|Any):
+        #print(f"{expression=}")
         if isinstance(expression, str):
             new_expression = env.get(expression)
 
@@ -227,6 +175,7 @@ class LispInterpreter:
 
 
         values = [self.run_rec(env, arg) for arg in args]
+        #print(f"{values=}")
 
         if isinstance(function, (int, float)):
             return [function, *values]
@@ -286,7 +235,7 @@ class LispInterpreter:
             return self.run_rec(env, false_branch)
 
     def define(self, env: Env, args):
-        var, value = args
+        (var, value,) = args
         env.set(var, self.run_rec(env, value))
 
     def let(self, env: Env, args):
@@ -351,8 +300,7 @@ class LispInterpreter:
         try:
             return sum(args)
         except TypeError as te:
-            print(f"{args}")
-            raise te
+            print(f"{te} {args}")
 
     def mult(self, args):
         result = 1
@@ -381,14 +329,27 @@ class LispInterpreter:
         return result
         
     def qoute(self, env, args):
-        (value, ) = args
-        return value
-        
-    def make_qoute(self, env, args):
-        return ['qoute', args]
+        (values,) = args
+        return values
 
+    
+    def quasiqoute(self, env, args):
+        if not isinstance(args, list):
+            return args
+        values = args   
+        if len(values)>0 and values[0]=="unqoute":
+            return self.run_rec(env, values[1])
+        return [self.quasiqoute(env, val) for val in values]
+        
+    def unqoute(self, env, args):
+        (result,) = self.run_rec(env, args)
+        return result
+        
     def print(self, args):
-        print(f"print {args}")
+        if isinstance(args,list) and len(args) ==1:
+            print("print", args[0])
+            return args[0]
+        print("print", args)
         return args
         
     def car(self, args):
@@ -403,6 +364,11 @@ class LispInterpreter:
             raise ValueError("car expects non empty list")
         return lst[1:]
         
+    def eval(self, env, args):
+        (expr,) = args
+        value = self.run_rec(env, expr)
+        return self.run_rec(env, value)
+        
 def main() -> None:
     program = Path(sys.argv[0])
     programpath = program.parent
@@ -412,8 +378,7 @@ def main() -> None:
     
     interpreter = LispInterpreter()
     if lispfile.exists():
-        header_parser : LispParser = LispParser(lisp = LispCtx())
-        parsed_lisp = header_parser.parse(tokenize_file(lispfile))
+        parsed_lisp = parse(tokenize_file(lispfile))
 
         interpreter.run(parsed_lisp, keep_env=True)
     else:
@@ -481,14 +446,18 @@ def main() -> None:
 (map double (1 2 3 4))
 ((lambda (x) (* 3 x)) 3)
     """
-    parser : LispParser = LispParser(lisp = LispCtx())
-
-    parsed_lisp = parser.parse(tokenize("""(let (( a (qoute (+ 1 2 3 4))))
+    
+    lisp_lines8 = """(let ((b 10)( a `( + 1 2 ,(+ 2 1) 4)))
+        (print b)
+        (print a)
         (print a (car a) (cdr a))
-        (print (cadr a)))"""))
+        (eval a)
+        )"""
+    
+    parsed_lisp = parse(tokenize(lisp_lines8))
     #print(f"{parsed_lisp=}")
 
-    print(interpreter.run(parsed_lisp))
+    print(interpreter.run(parsed_lisp, keep_env=True))
 
 if __name__ == '__main__':
     main()

@@ -1,6 +1,1 @@
-
-(defun test (b)
- (let ((a 10))
- (+ a b)))
-
-(print (test 20))
+(defun cadr (lst) (car (cdr lst)))
