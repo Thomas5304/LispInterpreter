@@ -4,6 +4,8 @@ import textwrap
 from enum import Enum, auto
 from typing import Callable, Any, Iterable, Generator
 from dataclasses import dataclass, field
+import os
+import sys
 from pathlib import Path
 
 class LispState(Enum):
@@ -12,6 +14,7 @@ class LispState(Enum):
     EOF = auto()
 
 class LispEvent(Enum):
+    QOUTE = auto()
     OPEN = auto()
     ELEMENT = auto()
     CLOSE = auto()
@@ -79,6 +82,8 @@ class LispParser:
                 self.handle(LispEvent.OPEN)
             elif token == ")":
                 self.handle(LispEvent.CLOSE)
+            elif token == "'":
+                self.handle(LispEvent.QOUTE)
             else:
                 self.lisp.element = token
                 self.handle(LispEvent.ELEMENT)
@@ -118,7 +123,7 @@ def close_list(ctx:LispCtx):
     ctx.close_actual_lisp_list()
 
 def tokenize(lisp_expression:str)->Generator[str, None, None]:
-    for token in lisp_expression.replace("(", " ( ").replace(")"," ) ").split():
+    for token in lisp_expression.replace("(", " ( ").replace(")"," ) ").replace("' (", "'(").split():
         try:
             token = int(token)
         except Exception:
@@ -169,8 +174,8 @@ class FunctionDef:
 
 class LispInterpreter:
 
-    def __init__(self, lisp_tree : list[Any]):
-        self.lisp_tree = lisp_tree
+    def __init__(self):
+        self.env = Env()
         self.specialforms = {
             'if': self.ifthenelse,
             'define': self.define,
@@ -178,6 +183,8 @@ class LispInterpreter:
             'lambda': self.create_lambda,
             'defun': self.define_function,
             'map': self.map,
+            "'": self.make_qoute,
+            'qoute': self.qoute,
         }
         self.functions = {
             'begin': self.begin,
@@ -191,6 +198,9 @@ class LispInterpreter:
             '<=': self.lessequal,
             '<': self.less,
             '==': self.equal,
+            'print': self.print,
+            'car': self.car,
+            'cdr': self.cdr,
         }
 
     def run_rec(self, env:Env, expression: list[Any]):
@@ -237,11 +247,16 @@ class LispInterpreter:
             else:
                 raise ValueError(f"unknown function {function}")
 
-    def run(self):
-        env : Env = Env()
+    def run(self, lisp_tree : list[Any], keep_env = False):
+        env : Env = Env(self.env)
+        #print(f"run starts with {str(env)=}")
         ret = None
-        for e in self.lisp_tree:
+        for e in lisp_tree:
             ret = self.run_rec(env, e)
+        #print(f"{str(env)=}")
+        if keep_env:
+            self.env = env
+            #print(f"keep {str(self.env)=}")
         return ret
 
     def create_lambda(self, env, args):
@@ -333,7 +348,11 @@ class LispInterpreter:
         return ret
 
     def add(self, args):
-        return sum(args)
+        try:
+            return sum(args)
+        except TypeError as te:
+            print(f"{args}")
+            raise te
 
     def mult(self, args):
         result = 1
@@ -360,8 +379,48 @@ class LispInterpreter:
         for arg in args:
             result /= arg
         return result
+        
+    def qoute(self, env, args):
+        (value, ) = args
+        return value
+        
+    def make_qoute(self, env, args):
+        return ['qoute', args]
 
+    def print(self, args):
+        print(f"print {args}")
+        return args
+        
+    def car(self, args):
+        (lst, ) = args
+        if not isinstance(lst, list) or len(lst)==0:
+            raise ValueError("car expects non empty list")
+        return lst[0]
+        
+    def cdr(self, args):
+        (lst, ) = args
+        if not isinstance(lst, list) or len(lst)==0:
+            raise ValueError("car expects non empty list")
+        return lst[1:]
+        
 def main() -> None:
+    program = Path(sys.argv[0])
+    programpath = program.parent
+    programname = program.name
+    print(f"{programname} located in {programpath}")
+    lispfile = programpath / Path("lispfile.lisp")
+    
+    interpreter = LispInterpreter()
+    if lispfile.exists():
+        header_parser : LispParser = LispParser(lisp = LispCtx())
+        parsed_lisp = header_parser.parse(tokenize_file(lispfile))
+
+        interpreter.run(parsed_lisp, keep_env=True)
+    else:
+        print(f"Can't find {lispfile} from here {os.getcwd()}")
+        exit(1)
+    
+    
     lisp_lines0 = textwrap.dedent("""\
         (my-func 1 2 ( + 1 2 )
         """)
@@ -399,11 +458,19 @@ def main() -> None:
     lisp_lines5 = """\
     (defun fib (x)
         (if (>= x 3)
-            (+ (fib (- x 1)) (fib (- x 2)))
-            1
+            (car (cdr (print
+                (
+                    x 
+                    (+ 
+                        (fib (- x 1))
+                        (fib (- x 2))
+                    )
+                )
+            )))
+            (print 1)
         )
     )
-    (map (lambda (x) (list x (fib x))) (3 4 5 6 7 8 9 10 11 12))
+    (print (map (lambda (x) (list x (fib x))) (3 4 5 6 7 8 9 10 11 12)))
         """
     lisp_lines6 = """\
     (defun sqr (x) (x (* x x)))
@@ -416,27 +483,12 @@ def main() -> None:
     """
     parser : LispParser = LispParser(lisp = LispCtx())
 
-    parsed_lisp = parser.parse(tokenize(lisp_lines5))
-    print(f"{parsed_lisp=}")
+    parsed_lisp = parser.parse(tokenize("""(let (( a (qoute (+ 1 2 3 4))))
+        (print a (car a) (cdr a))
+        (print (cadr a)))"""))
+    #print(f"{parsed_lisp=}")
 
-    interpreter = LispInterpreter(parsed_lisp)
-    print(f"interpreter.run({parsed_lisp})={interpreter.run()}")
-
-    exit(0)
-
-    ctx = LispCtx()
-    print(f"ctx {ctx.depth}")
-
-    exit(0)
-    lispfile = Path("./src/lispfile.lisp").absolute()
-    if lispfile.exists():
-        #for token in tokenize_file(lispfile):
-        #    print(token)
-        parsed_lisp = parser.parse(tokenize_file(lispfile))
-        print(parsed_lisp)
-    else:
-        print(f"Can't find {lispfile}")
-        exit(1)
+    print(interpreter.run(parsed_lisp))
 
 if __name__ == '__main__':
     main()
