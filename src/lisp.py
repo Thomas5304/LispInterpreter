@@ -262,6 +262,18 @@ class LispInterpreter:
         self.env.set('format', lisp_format)
         self.env.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
         self.env.set('print', print)
+        self.env.set('list', create_list)
+        self.env.set('+'   , add)
+        self.env.set('-'   , sub)
+        self.env.set('*'   , mult)
+        self.env.set('/'   , div)
+        self.env.set('>='  , greaterequal)
+        self.env.set('>'   , greater)
+        self.env.set('<='  , lessequal)
+        self.env.set('<'   , less)
+        self.env.set('=='  , equal)
+        self.env.set('car' , car)
+        self.env.set('cdr' , cdr)
         
         self.specialforms = {
             'if': self.ifthenelse,
@@ -274,21 +286,9 @@ class LispInterpreter:
             'quasiquote': self.quasiqoute,
             'unquote': self.unqoute,
             'eval': self.eval,
+            'begin': self.begin,
         }
         self.functions = {
-            'begin': self.begin,
-            'list':  create_list,
-            '+':     add,
-            '-':     sub,
-            '*':     mult,
-            '/':     div,
-            '>=':    greaterequal,
-            '>':     greater,
-            '<=':    lessequal,
-            '<':     less,
-            '==':    equal,
-            'car':   car,
-            'cdr':   cdr,
 
         }
 
@@ -420,8 +420,7 @@ class LispInterpreter:
         return result
         
     def eval(self, env, args):
-        (expr,) = args
-        value = self.run_rec(env, expr)
+        value = self.run_rec(env, args)
         return self.run_rec(env, value)
         
 def main() -> None:
