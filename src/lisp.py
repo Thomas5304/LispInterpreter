@@ -8,26 +8,76 @@ import os
 import sys
 from pathlib import Path
 
-def tokenize(lisp_expression:str)->Generator[str, None, None]:
+def oldtokenize(lisp_expression:str)->Generator[str, None, None]:
     s = lisp_expression.replace("(", " ( ").replace(")"," ) ").replace("'", " ' ")
     s = s.replace("`", " ` ").replace("'", " ' ")
     
     for token in s.split():
         yield token
 
+def tokenize(s: str):
+    i = 0
+    while i < len(s):
+        c = s[i]
+
+        # whitespace
+        if c.isspace():
+            i += 1
+            continue
+
+        # Klammern
+        if c in '()':
+            yield c
+            i += 1
+            continue
+
+        # quote / quasiquote / unquote
+        if c in "'`,":
+            yield c
+            i += 1
+            continue
+
+        # STRING
+        if c == '"':
+            i += 1
+            start = i
+            value = ""
+
+            while i < len(s):
+                if s[i] == '"' and s[i-1] != '\\':
+                    break
+                value += s[i]
+                i += 1
+
+            i += 1  # schließendes "
+            yield ('STRING', value)
+            continue
+
+        # SYMBOL / ZAHL
+        start = i
+        while i < len(s) and not s[i].isspace() and s[i] not in '()\'`,"':
+            i += 1
+
+        yield s[start:i]
+
 def tokenize_file(filename: Path)->Generator[str, None, None]:
     with open(filename) as filehandle:
         for line in filehandle.readlines():
             yield from tokenize(line)
 
+class Symbol(str):
+    pass
+    
 def atom(token):
+    if isinstance(token, tuple):
+        return token[1]
     try:
         return int(token)
-    except ValueError:
+    except:
         try:
             return float(token)
-        except ValueError:
-            return token  # Symbol (z. B. '+', 'x')        
+        except:
+            return Symbol(token)  # Symbol (z. B. '+', 'x')        
 
 def parse(tokens, program = list()):
     class TokenStream:
@@ -116,11 +166,103 @@ class FunctionDef:
         self.params = params
         self.body = body
 
+def lisp_format(fmt, *args):
+    try:
+        return fmt.format(*args)
+    except Exception as e:
+        raise ValueError(f"format Fehler: {e}")
+        def create_list(self, args):
+            return list(args)
+    
+def greater(args):
+    a, b = args
+    #print(f"{a=} > {b=}")
+    ret = True if a>b else None
+    #print(f"{ret=}")
+    return ret
 
+def greaterequal(args):
+    a, b = args
+    #print(f"{a=} >= {b=}")
+    ret = True if a>=b else None
+    #print(f"{ret=}")
+    return ret
+
+def less(args):
+    a, b = args
+    #print(f"{a=} < {b=}")
+    ret = True if a<b else None
+    #print(f"{ret=}")
+    return ret
+
+def lessequal(args):
+    a, b = args
+    #print(f"{a=} <= {b=}")
+    ret = True if a<=b else None
+    #print(f"{ret=}")
+    return ret
+
+def equal(args):
+    a, b = args
+    #print(f"{a=} == {b=}")
+    ret = True if a==b else None
+    #print(f"{ret=}")
+    return ret
+
+def add(*args):
+    if any(isinstance(arg, str) for arg in args):
+        return ''.join(str(arg) for arg in args)
+    try:
+        return sum(args)
+    except TypeError as te:
+        print(f"{te} {args}")
+
+def mult(*args):
+    result = 1
+    for arg in args:
+        result *= arg
+    return result
+
+def sub(*args):
+    l = len(args)
+    if l == 0:
+        raise ValueError("sub with no argument")
+    if l == 1:
+        return -args[0]
+    result = args[0]
+    for arg in args[1:]:
+        result -= arg
+    return result
+
+def div(*args):
+    l = len(args)
+    if l == 0:
+        raise ValueError("sub with no argument")
+    result = args[0]
+    for arg in args:
+        result /= arg
+    return result
+def car(args):
+    if not isinstance(args, list) or len(args)==0:
+        raise ValueError("car expects non empty list")
+    return args[0]
+    
+def cdr(args):
+    if not isinstance(args, list) or len(args)==0:
+        raise ValueError("car expects non empty list")
+    return args[1:]
+
+def create_list(*args):
+    return list(args)
+                
 class LispInterpreter:
 
     def __init__(self):
         self.env = Env()
+        self.env.set('format', lisp_format)
+        self.env.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
+        self.env.set('print', print)
+        
         self.specialforms = {
             'if': self.ifthenelse,
             'define': self.define,
@@ -135,33 +277,34 @@ class LispInterpreter:
         }
         self.functions = {
             'begin': self.begin,
-            'list': self.create_list,
-            '+': self.add,
-            '-': self.sub,
-            '*': self.mult,
-            '/': self.div,
-            '>=': self.greaterequal,
-            '>': self.greater,
-            '<=': self.lessequal,
-            '<': self.less,
-            '==': self.equal,
-            'print': self.print,
-            'car': self.car,
-            'cdr': self.cdr,
+            'list':  create_list,
+            '+':     add,
+            '-':     sub,
+            '*':     mult,
+            '/':     div,
+            '>=':    greaterequal,
+            '>':     greater,
+            '<=':    lessequal,
+            '<':     less,
+            '==':    equal,
+            'car':   car,
+            'cdr':   cdr,
 
         }
 
     def run_rec(self, env:Env, expression: list[Any]|Any):
         #print(f"{expression=}")
+        
+        if isinstance(expression, Symbol):
+            return env.get(expression)
+            
         if isinstance(expression, str):
-            new_expression = env.get(expression)
-
-            return new_expression
+            return expression
 
         if isinstance(expression, (float,int)):
             return expression
 
-        if not isinstance(expression, list):
+        if not isinstance(expression, (list, tuple)):
             raise ValueError(f"invalid value {expression}")
 
         function = expression[0]
@@ -171,7 +314,7 @@ class LispInterpreter:
             function = self.run_rec(env, function)
 
         if function in self.specialforms:
-            return self.specialforms[function](env, args)
+            return self.specialforms[function](env, *args)
 
 
         values = [self.run_rec(env, arg) for arg in args]
@@ -181,7 +324,7 @@ class LispInterpreter:
             return [function, *values]
 
         if function in self.functions.keys():
-            return self.functions[function](values)
+            return self.functions[function](*values)
         else:
             if isinstance(function, str):
                 func = env.get(function)
@@ -193,6 +336,8 @@ class LispInterpreter:
                     new_env.set(name, value)
 
                 return self.run_rec(new_env, func.body)
+            elif callable(func):
+                return func(*values)
             else:
                 raise ValueError(f"unknown function {function}")
 
@@ -208,24 +353,24 @@ class LispInterpreter:
             #print(f"keep {str(self.env)=}")
         return ret
 
-    def create_lambda(self, env, args):
+    def create_lambda(self, env, *args):
         params, body = args
         return FunctionDef(env, params, body)
 
-    def define_function(self, env, args):
+    def define_function(self, env, *args):
         name, params, body = args
         func = FunctionDef(env, params, body)
         env.set(name, func)
 
 
-    def begin(self, env, args):
+    def begin(self, env, *args):
         _, expressions = args
         ret = None
         for expression in expressions:
             ret = self.run_rec(env, expression)
         return ret
 
-    def ifthenelse(self, env, args):
+    def ifthenelse(self, env, *args):
         condition, true_branch, false_branch = args
         cond_result = self.run_rec(env, condition)
         #print(f"{cond_result=}")
@@ -234,16 +379,15 @@ class LispInterpreter:
         else:
             return self.run_rec(env, false_branch)
 
-    def define(self, env: Env, args):
-        (var, value,) = args
+    def define(self, env: Env, *args):
+        (var, value) = args
         env.set(var, self.run_rec(env, value))
 
-    def let(self, env: Env, args):
+    def let(self, env: Env, vars, *expressions):
         env = Env(env)
-        vars, *expressions = args
 
         for var in vars:
-            self.define(env, var)
+            self.define(env, *var)
 
         ret = None
 
@@ -254,83 +398,13 @@ class LispInterpreter:
 
         return ret
 
-    def create_list(self, args):
-        return list(args)
-
     def map(self, env, args):
         func, values = args
         return [self.run_rec(env, [func, value]) for value in values]
 
-    def greater(self, args):
-        a, b = args
-        #print(f"{a=} > {b=}")
-        ret = True if a>b else None
-        #print(f"{ret=}")
-        return ret
 
-    def greaterequal(self, args):
-        a, b = args
-        #print(f"{a=} >= {b=}")
-        ret = True if a>=b else None
-        #print(f"{ret=}")
-        return ret
-
-    def less(self, args):
-        a, b = args
-        #print(f"{a=} < {b=}")
-        ret = True if a<b else None
-        #print(f"{ret=}")
-        return ret
-
-    def lessequal(self, args):
-        a, b = args
-        #print(f"{a=} <= {b=}")
-        ret = True if a<=b else None
-        #print(f"{ret=}")
-        return ret
-
-    def equal(self, args):
-        a, b = args
-        #print(f"{a=} == {b=}")
-        ret = True if a==b else None
-        #print(f"{ret=}")
-        return ret
-
-    def add(self, args):
-        try:
-            return sum(args)
-        except TypeError as te:
-            print(f"{te} {args}")
-
-    def mult(self, args):
-        result = 1
-        for arg in args:
-            result *= arg
-        return result
-
-    def sub(self, args):
-        l = len(args)
-        if l == 0:
-            raise ValueError("sub with no argument")
-        if l == 1:
-            return -args[0]
-        result = args[0]
-        for arg in args[1:]:
-            result -= arg
-        return result
-
-    def div(self, args):
-        l = len(args)
-        if l == 0:
-            raise ValueError("sub with no argument")
-        result = args[0]
-        for arg in args:
-            result /= arg
-        return result
-        
     def qoute(self, env, args):
-        (values,) = args
-        return values
+        return args
 
     
     def quasiqoute(self, env, args):
@@ -344,25 +418,6 @@ class LispInterpreter:
     def unqoute(self, env, args):
         (result,) = self.run_rec(env, args)
         return result
-        
-    def print(self, args):
-        if isinstance(args,list) and len(args) ==1:
-            print("print", args[0])
-            return args[0]
-        print("print", args)
-        return args
-        
-    def car(self, args):
-        (lst, ) = args
-        if not isinstance(lst, list) or len(lst)==0:
-            raise ValueError("car expects non empty list")
-        return lst[0]
-        
-    def cdr(self, args):
-        (lst, ) = args
-        if not isinstance(lst, list) or len(lst)==0:
-            raise ValueError("car expects non empty list")
-        return lst[1:]
         
     def eval(self, env, args):
         (expr,) = args
@@ -447,13 +502,19 @@ def main() -> None:
 ((lambda (x) (* 3 x)) 3)
     """
     
-    lisp_lines8 = """(let ((b 10)( a `( + 1 2 ,(+ 2 1) 4)))
-        (print b)
+    lisp_lines8 = """(let ((b 10)( a `( + 1 2 (+ 2 1) 4)))
         (print a)
         (print a (car a) (cdr a))
-        (eval a)
+        (print (eval a))
         )"""
-    
+    lisp_lines9 = """\
+        (define print (lambda (a) '(print a)))
+        (define a "Thomas Dilling")
+        (define b "Hallo ")
+        (define c 10)
+        (print (string-append b a " " c) )
+        (print (format "{} ist {} Jahre alt!" a 59))
+        """
     parsed_lisp = parse(tokenize(lisp_lines8))
     #print(f"{parsed_lisp=}")
 
