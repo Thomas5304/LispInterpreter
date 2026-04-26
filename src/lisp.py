@@ -1,3 +1,4 @@
+from cmath import isinf
 from re import L
 from tokenize import Token
 import textwrap
@@ -149,7 +150,7 @@ class Env:
             return self.data[name]
         if self.parent is not None:
             return self.parent.get(name)
-        raise NameError(f"unbound symbol: {name}  -- {self}")
+        raise NameError(f"unbound symbol: {name}")
 
     def set(self, name, value):
         self.data[name] = value
@@ -161,11 +162,18 @@ class Env:
         return ret + str(self.data)
 
 class FunctionDef:
-    def __init__(self, closure, params, body) -> None:
+    def __init__(self, closure, params, body, call_interpreter) -> None:
         self.closure = closure
         self.params = params
         self.body = body
+        self.call_interpreter = call_interpreter
 
+    def __call__(self, *values):
+        new_env = Env(self.closure)
+        for name, value in zip(self.params, values):
+            new_env.set(name, value)
+        return self.call_interpreter(new_env, self.body)
+        
 def lisp_format(fmt, *args):
     try:
         return fmt.format(*args)
@@ -254,7 +262,22 @@ def cdr(args):
 
 def create_list(*args):
     return list(args)
-                
+            
+def lisp_map(func, *args):
+    if not isinstance(func, FunctionDef) and not callable(func):
+        raise TypeError(f"map: can't call func {func}")
+        
+    for nr, lst in enumerate(args):
+        if not isinstance(lst, list):
+            raise TypeError(f"map: element at {nr} is not a list")
+    result = []
+    
+    for items in zip(*args):
+        value = func(*items)
+        result.append(value)
+        
+    return result
+    
 class LispInterpreter:
 
     def __init__(self):
@@ -274,6 +297,7 @@ class LispInterpreter:
         self.env.set('=='  , equal)
         self.env.set('car' , car)
         self.env.set('cdr' , cdr)
+        self.env.set('map', lisp_map)
         
         self.specialforms = {
             'if': self.ifthenelse,
@@ -281,7 +305,7 @@ class LispInterpreter:
             'let': self.let,
             'lambda': self.create_lambda,
             'defun': self.define_function,
-            'map': self.map,
+            #'map': self.map,
             'quote': self.qoute,
             'quasiquote': self.quasiqoute,
             'unquote': self.unqoute,
@@ -337,6 +361,7 @@ class LispInterpreter:
 
                 return self.run_rec(new_env, func.body)
             elif callable(func):
+                #print(values)
                 return func(*values)
             else:
                 raise ValueError(f"unknown function {function}")
@@ -355,11 +380,11 @@ class LispInterpreter:
 
     def create_lambda(self, env, *args):
         params, body = args
-        return FunctionDef(env, params, body)
+        return FunctionDef(env, params, body, self.run_rec)
 
     def define_function(self, env, *args):
         name, params, body = args
-        func = FunctionDef(env, params, body)
+        func = FunctionDef(env, params, body, self.run_rec)
         env.set(name, func)
 
 
@@ -398,9 +423,13 @@ class LispInterpreter:
 
         return ret
 
-    def map(self, env, args):
-        func, values = args
-        return [self.run_rec(env, [func, value]) for value in values]
+    def map(self, env, *args):
+        func = self.run_rec(env, args[0])
+        list_of_values = self.run_rec(env, args[1:])
+        
+        if len(list_of_values)==1:
+            return [self.run_rec(env, [func, value]) for value in values]
+        return [None]
 
 
     def qoute(self, env, args):
@@ -440,17 +469,18 @@ def main() -> None:
         exit(1)
     
     
-    lisp_lines0 = textwrap.dedent("""\
+    testcases = {
+        "testcase1" : textwrap.dedent("""\
         (my-func 1 2 ( + 1 2 )
-        """)
-    lisp_lines1 = textwrap.dedent("""\
+        """),
+        "testcase2": textwrap.dedent("""\
         (my-func 1 2 3 (my-func 4 5 (+ 3 3)))
         (+ 10 (* 3 6))
-        """)
-    lisp_lines2 = textwrap.dedent("""\
+        """),
+        "testcase3": textwrap.dedent("""\
         (my-func 1 2 3 (my-func 4 5 (+ 3 3))))
-        """)
-    lisp_lines3 = """\
+        """),
+        "testcase4": """\
     (define a 10)
     (define addN
         (lambda (n)
@@ -458,9 +488,9 @@ def main() -> None:
             )
         )
     )
-    (list (let ((a 2) (b 3 )) (+ 1 a b (* 2 2) (if nil (/ 2 1) (+ 3 2))) (+ a b)) 10)"""
+    (list (let ((a 2) (b 3 )) (+ 1 a b (* 2 2) (if nil (/ 2 1) (+ 3 2))) (+ a b)) 10)""",
 
-    lisp_lines4 = """\
+    "testcase5": """\
     (define a 10)
     (defun test (m) (lambda (x) (* m x)))
     (define addN
@@ -473,8 +503,8 @@ def main() -> None:
     (define mul10 (test 10))
     ((add5 a) (mul10 3))
     (map (lambda (v) (* 3.14 v)) (10 12 14))
-    """
-    lisp_lines5 = """\
+    """,
+    "testcase6": """\
     (defun fib (x)
         (if (>= x 3)
             (car (cdr (print
@@ -490,34 +520,59 @@ def main() -> None:
         )
     )
     (print (map (lambda (x) (list x (fib x))) (3 4 5 6 7 8 9 10 11 12)))
-        """
-    lisp_lines6 = """\
+        """,
+    "testcase7": """\
     (defun sqr (x) (x (* x x)))
     (map sqr (4 5))
-    """
-    lisp_lines7 = """\
+    """,
+    "testcase8": """\
 (defun double (x) (* 2 x))
-(map double (1 2 3 4))
+(define lst '(1 2 3 4 5))
+(print lst " -> " (map double lst))
 ((lambda (x) (* 3 x)) 3)
-    """
+    """,
     
-    lisp_lines8 = """(let ((b 10)( a `( + 1 2 (+ 2 1) 4)))
+    "testcase9": """(let ((b 10)( a `( + 1 2 (+ 2 1) 4)))
         (print a)
         (print a (car a) (cdr a))
         (print (eval a))
-        )"""
-    lisp_lines9 = """\
+        )""",
+    "testcase10": """\
         (define print (lambda (a) '(print a)))
         (define a "Thomas Dilling")
         (define b "Hallo ")
         (define c 10)
         (print (string-append b a " " c) )
         (print (format "{} ist {} Jahre alt!" a 59))
-        """
-    parsed_lisp = parse(tokenize(lisp_lines8))
-    #print(f"{parsed_lisp=}")
+        """,
+        }
+    number_of_testcases = len(testcases)
+    while True:
+        test_case = input(f"testcase: ")
+        if test_case=="exit":
+            exit(0)
+        if test_case not in testcases:
+            if test_case.startswith("load "):
+                filepath = Path(test_case[5:].strip())
+                
+                with open(filepath)as filehandle:
+                    lisp_lines = "".join(filehandle.readlines())
+                    token_generator = tokenize(lisp_lines)
+            else:
+                lisp_lines = test_case
+                if lisp_lines.strip() == "":
+                    continue 
+                token_generator = tokenize(lisp_lines)
+        else:
+            lisp_lines = testcases[test_case]
+            token_generator = tokenize(lisp_lines)
+            
+        print(f"test case:\n{lisp_lines}\n-----------\n")
+        parsed_lisp = parse(token_generator)
 
-    print(interpreter.run(parsed_lisp, keep_env=True))
+        print(interpreter.run(parsed_lisp, keep_env=True))
 
+        print("===============")
+        
 if __name__ == '__main__':
     main()
