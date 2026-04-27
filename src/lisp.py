@@ -155,10 +155,10 @@ class Env:
         if name in self.data.keys():
             #print(f"found {name=} old value={self.data[name]}")
             self.data[name] = value
-            return 't'
+            return True
         if self.parent is None:
             #print("no parent, returning False")
-            return 'nil'
+            return False
         #print("search in parent")
         return self.parent.overwrite(name, value)
         
@@ -195,36 +195,31 @@ def lisp_format(fmt, *args):
         def create_list(self, args):
             return list(args)
     
-def greater(args):
-    a, b = args
+def greater(a, b):
     #print(f"{a=} > {b=}")
     ret = True if a>b else None
     #print(f"{ret=}")
     return ret
 
-def greaterequal(args):
-    a, b = args
+def greaterequal(a, b):
     #print(f"{a=} >= {b=}")
     ret = True if a>=b else None
     #print(f"{ret=}")
     return ret
 
-def less(args):
-    a, b = args
+def less(a, b):
     #print(f"{a=} < {b=}")
     ret = True if a<b else None
     #print(f"{ret=}")
     return ret
 
-def lessequal(args):
-    a, b = args
+def lessequal(a, b):
     #print(f"{a=} <= {b=}")
     ret = True if a<=b else None
     #print(f"{ret=}")
     return ret
 
-def equal(args):
-    a, b = args
+def equal(a, b):
     #print(f"{a=} == {b=}")
     ret = True if a==b else None
     #print(f"{ret=}")
@@ -312,6 +307,7 @@ class LispInterpreter:
         self.env.set('cdr' , cdr)
         self.env.set('map', lisp_map)
         self.env.set('print-env', lambda *args: print(str(self.env)))
+        self.env.set('exit', lambda code: exit(code) if code is not None else exit(0))
 
         self.functionplaceholder = FunctionDef(self.env, None, None, self.run_rec)
 
@@ -327,7 +323,8 @@ class LispInterpreter:
             'unquote': self.unqoute,
             'eval': self.eval,
             'begin': self.begin,
-            'set!': self.overwrite
+            'set!': self.overwrite,
+            'load': self.load_and_parse_lisp_file,
         }
         self.functions = {
 
@@ -384,15 +381,15 @@ class LispInterpreter:
                 raise ValueError(f"unknown function {function}")
 
     def run(self, lisp_tree : list[Any], keep_env = False):
-        env : Env = Env(self.env)
+        if keep_env:
+            env = self.env
+        else:
+            env : Env = Env(self.env)
         #print(f"run starts with {str(env)=}")
         ret = None
         for e in lisp_tree:
             ret = self.run_rec(env, e)
         #print(f"{str(env)=}")
-        if keep_env and not env.empty():
-            self.env = env
-            #print(f"keep {str(self.env)=}")
         
         return ret
 
@@ -403,9 +400,11 @@ class LispInterpreter:
     def define_function(self, env, *args):
         try:
             name, params, body = args
-            #env.set(name, self.functionplaceholder)
+            #print(f"try to add function {name} ({params}) {body}")
+            env.set(name, self.functionplaceholder)
             func = FunctionDef(env, params, body, self.run_rec)
-            env.set(name, func)
+            if not env.overwrite(name, func):
+                raise NameError(f"expecting function {name} in environtment")
         except NameError as ne:
             print(f"function {name} not defined: {ne}")
 
@@ -431,7 +430,7 @@ class LispInterpreter:
         env.set(var, self.run_rec(env, value))
 
     def overwrite(self, env, var, value):
-        return env.overwrite(var, value)
+        return "t" if env.overwrite(var, value) else "nil"
     
 
 
@@ -474,6 +473,17 @@ class LispInterpreter:
     def unqoute(self, env, args):
         (result,) = self.run_rec(env, args)
         return result
+
+    def load_and_parse_lisp_file(self, env, filename):
+        filepath = Path(filename).absolute()
+        if not filepath.exists():
+            return "nil"
+
+        parsed_lisp = parse(tokenize_file(filepath), program=list())
+
+        self.run(parsed_lisp, keep_env = True)
+        
+        return "t"
         
     def eval(self, env, args):
         value = self.run_rec(env, args)
