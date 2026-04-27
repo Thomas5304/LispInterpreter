@@ -1,3 +1,4 @@
+#!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
 from cmath import isinf
 from re import L
 from tokenize import Token
@@ -140,12 +141,6 @@ class Env:
         self.parent = parent
 
     def get(self, name):
-        if name == "t":
-            return True
-
-        if name == "nil":
-            return None
-
         if name in self.data:
             return self.data[name]
         if self.parent is not None:
@@ -154,6 +149,24 @@ class Env:
 
     def set(self, name, value):
         self.data[name] = value
+
+
+    def overwrite(self, name, value):
+        if name in self.data.keys():
+            #print(f"found {name=} old value={self.data[name]}")
+            self.data[name] = value
+            return 't'
+        if self.parent is None:
+            #print("no parent, returning False")
+            return 'nil'
+        #print("search in parent")
+        return self.parent.overwrite(name, value)
+        
+
+    def empty(self):
+        if len(self.data) == 0:
+            return True
+        return False
 
     def __str__(self):
         ret = ""
@@ -277,7 +290,7 @@ def lisp_map(func, *args):
         result.append(value)
         
     return result
-    
+
 class LispInterpreter:
 
     def __init__(self):
@@ -298,7 +311,10 @@ class LispInterpreter:
         self.env.set('car' , car)
         self.env.set('cdr' , cdr)
         self.env.set('map', lisp_map)
-        
+        self.env.set('print-env', lambda *args: print(str(self.env)))
+
+        self.functionplaceholder = FunctionDef(self.env, None, None, self.run_rec)
+
         self.specialforms = {
             'if': self.ifthenelse,
             'define': self.define,
@@ -311,12 +327,13 @@ class LispInterpreter:
             'unquote': self.unqoute,
             'eval': self.eval,
             'begin': self.begin,
+            'set!': self.overwrite
         }
         self.functions = {
 
         }
 
-    def run_rec(self, env:Env, expression: list[Any]|Any):
+    def run_rec(self, env:Env, expression):
         #print(f"{expression=}")
         
         if isinstance(expression, Symbol):
@@ -373,9 +390,10 @@ class LispInterpreter:
         for e in lisp_tree:
             ret = self.run_rec(env, e)
         #print(f"{str(env)=}")
-        if keep_env:
+        if keep_env and not env.empty():
             self.env = env
             #print(f"keep {str(self.env)=}")
+        
         return ret
 
     def create_lambda(self, env, *args):
@@ -383,9 +401,13 @@ class LispInterpreter:
         return FunctionDef(env, params, body, self.run_rec)
 
     def define_function(self, env, *args):
-        name, params, body = args
-        func = FunctionDef(env, params, body, self.run_rec)
-        env.set(name, func)
+        try:
+            name, params, body = args
+            #env.set(name, self.functionplaceholder)
+            func = FunctionDef(env, params, body, self.run_rec)
+            env.set(name, func)
+        except NameError as ne:
+            print(f"function {name} not defined: {ne}")
 
 
     def begin(self, env, *args):
@@ -407,6 +429,11 @@ class LispInterpreter:
     def define(self, env: Env, *args):
         (var, value) = args
         env.set(var, self.run_rec(env, value))
+
+    def overwrite(self, env, var, value):
+        return env.overwrite(var, value)
+    
+
 
     def let(self, env: Env, vars, *expressions):
         env = Env(env)
@@ -566,12 +593,20 @@ def main() -> None:
         else:
             lisp_lines = testcases[test_case]
             token_generator = tokenize(lisp_lines)
-            
-        print(f"test case:\n{lisp_lines}\n-----------\n")
-        parsed_lisp = parse(token_generator)
 
-        print(interpreter.run(parsed_lisp, keep_env=True))
-
+        if False:
+            try:
+                print(f"test case:\n{lisp_lines}\n-----------\n")
+                parsed_lisp = parse(token_generator, program=list())
+                
+                print(interpreter.run(parsed_lisp, keep_env=True))
+            except NameError as ne:
+                print(ne)
+        else:
+            print(f"test case:\n{lisp_lines}\n-----------\n")
+            parsed_lisp = parse(token_generator, program=list())
+                
+            print(interpreter.run(parsed_lisp, keep_env=True))
         print("===============")
         
 if __name__ == '__main__':
