@@ -7,3 +7,6 @@
         (print x y z)
 
 )
+
+(defun fib (x)
+   (if (> 3 x) (+ (fib (- x 1)) (fib (- x 2))) (1))
