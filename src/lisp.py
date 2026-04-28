@@ -1,4 +1,3 @@
-#!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
 from cmath import isinf
 from re import L
 from tokenize import Token
@@ -146,6 +145,12 @@ class Env:
         self.parent = parent
 
     def get(self, name):
+        if name == "t":
+            return True
+
+        if name == "nil":
+            return None
+
         if name in self.data:
             return self.data[name]
         if self.parent is not None:

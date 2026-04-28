@@ -12,6 +12,7 @@
 (print (map fib ( 3 4 5 6 7 8 9 10)))
 (fib 6)
        
+(defun sqr (x) (* x x))
 
 (defmacro unless (cond body) (quasiquote (if (not (unquote cond)) (unquote body))))
 
