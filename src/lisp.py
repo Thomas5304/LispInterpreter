@@ -292,7 +292,7 @@ class LispInterpreter:
 
         def expand(self, *raw_args):
             result = self.proc(*raw_args)
-            print("Macro.expand:", result)
+            #print("Macro.expand:", result)
             return result
 
     def is_macro(x):return isinstance(x, LispInterpreter.Macro)
@@ -310,13 +310,13 @@ class LispInterpreter:
 
                 raw_args = ast[1:]
 
-                print(f"macroexpand {head} before: {raw_args}\n")
+                #print(f"macroexpand {head} before: {raw_args}\n")
 
-                print(f"macro param: {macro.proc.params} set to {raw_args}\n")
+                #print(f"macro param: {macro.proc.params} set to {raw_args}\n")
                 ast = macro.expand(*raw_args)
                 if isinstance(ast, Env):
                     raise TypeError("this is a Env")
-                print(f"macroexpand {head}  after: {ast}\n\n")
+                #print(f"macroexpand {head}  after: {ast}\n\n")
 
                 continue
 
@@ -501,11 +501,11 @@ class LispInterpreter:
         return args
 
 
-    def quasiquote(env, ast, depth=0):
+    def quasiquote(self, env, ast, depth=1):
         """
         ast: AST node (atom or list)
         env: environment used to eval unquote parts
-        depth: nesting level of quasiquote (0 = not in quasiquote)
+        depth: nesting level of quasiquote (1 = we are in quasiquote)
         Returns: AST with unquotes evaluated (for macro expansion)
         """
         # atoms: just return quoted atom as-is (symbols/numbers)
@@ -519,29 +519,29 @@ class LispInterpreter:
         # If head is 'quasiquote', increase depth and recurse into its body
         if is_symbol(ast[0]) and ast[0] == 'quasiquote':
             # (quasiquote X) -> treat inner with depth+1
-            return ['quasiquote', quasiquote(ast[1], env, depth+1)]
+            return ['quasiquote', self.quasiquote(env, ast[1], depth+1)]
 
         # Handle unquote only when depth == 1 (i.e. this quasiquote level)
         if is_symbol(ast[0]) and ast[0] == 'unquote':
             if depth == 1:
                 # evaluate the inner expression in env and return the result (AST)
-                return eval_lisp(ast[1], env)
+                return self.run_rec(env, ast[1])
             else:
                 # inside deeper quasiquote: treat as literal unquote form
-                return ['unquote', quasiquote(ast[1], env, depth-1)]
+                return ['unquote', self.quasiquote(env, ast[1], depth-1)]
 
         # Handle unquote-splicing, only valid inside list context when depth == 1
         if is_symbol(ast[0]) and ast[0] == 'unquote-splicing':
             if depth == 1:
                 # evaluate to a list that will later be spliced
-                return ('__UNQUOTE_SPLICED__', eval_lisp(ast[1], env))
+                return ('__UNQUOTE_SPLICED__', self.run_rec(env, ast[1]))
             else:
-                return ['unquote-splicing', quasiquote(ast[1], env, depth-1)]
+                return ['unquote-splicing', self.quasiquote(env, ast[1], depth-1)]
 
         # General list processing: iterate elements, handle splicing markers
         result = []
         for elem in ast:
-            q = quasiquote(elem, env, depth)
+            q = self.quasiquote(env, elem, depth)
             # If element returned a special splicing marker, splice its value into result
             if isinstance(q, tuple) and q and q[0] == '__UNQUOTE_SPLICED__':
                 spliced = q[1]
@@ -584,117 +584,31 @@ def main() -> None:
     programpath = program.parent
     programname = program.name
     print(f"{programname} located in {programpath}")
-    lispfile = programpath / Path("lispfile.lisp")
-    
+
+    lispfiles = [programpath / Path("lispfile.lisp"),
+                programpath / "macro.l"]
+
     interpreter = LispInterpreter()
-    if lispfile.exists():
-        parsed_lisp = parse(tokenize_file(lispfile))
 
-        interpreter.run(parsed_lisp, keep_env=True)
-    else:
-        print(f"Can't find {lispfile} from here {os.getcwd()}")
-        exit(1)
+    for lispfile in lispfiles:
     
-    
-    testcases = {
-        "testcase1" : textwrap.dedent("""\
-        (my-func 1 2 ( + 1 2 )
-        """),
-        "testcase2": textwrap.dedent("""\
-        (my-func 1 2 3 (my-func 4 5 (+ 3 3)))
-        (+ 10 (* 3 6))
-        """),
-        "testcase3": textwrap.dedent("""\
-        (my-func 1 2 3 (my-func 4 5 (+ 3 3))))
-        """),
-        "testcase4": """\
-    (define a 10)
-    (define addN
-        (lambda (n)
-            (lambda (x) (+ x n)
-            )
-        )
-    )
-    (list (let ((a 2) (b 3 )) (+ 1 a b (* 2 2) (if nil (/ 2 1) (+ 3 2))) (+ a b)) 10)""",
+        if lispfile.exists():
+            parsed_lisp = parse(tokenize_file(lispfile))
 
-    "testcase5": """\
-    (define a 10)
-    (defun test (m) (lambda (x) (* m x)))
-    (define addN
-        (lambda (n)
-            (lambda (x) (+ x n)
-            )
-        )
-    )
-    (define add5 (addN 5))
-    (define mul10 (test 10))
-    ((add5 a) (mul10 3))
-    (map (lambda (v) (* 3.14 v)) (10 12 14))
-    """,
-    "testcase6": """\
-    (defun fib (x)
-        (if (>= x 3)
-            (car (cdr (print
-                (
-                    x 
-                    (+ 
-                        (fib (- x 1))
-                        (fib (- x 2))
-                    )
-                )
-            )))
-            (print 1)
-        )
-    )
-    (print (map (lambda (x) (list x (fib x))) (3 4 5 6 7 8 9 10 11 12)))
-        """,
-    "testcase7": """\
-    (defun sqr (x) (x (* x x)))
-    (map sqr (4 5))
-    """,
-    "testcase8": """\
-(defun double (x) (* 2 x))
-(define lst '(1 2 3 4 5))
-(print lst " -> " (map double lst))
-((lambda (x) (* 3 x)) 3)
-    """,
+            interpreter.run(parsed_lisp, keep_env=True)
+        else:
+            print(f"Can't find {lispfile} from here {os.getcwd()}")
+        
     
-    "testcase9": """(let ((b 10)( a `( + 1 2 (+ 2 1) 4)))
-        (print a)
-        (print a (car a) (cdr a))
-        (print (eval a))
-        )""",
-    "testcase10": """\
-        (define print (lambda (a) '(print a)))
-        (define a "Thomas Dilling")
-        (define b "Hallo ")
-        (define c 10)
-        (print (string-append b a " " c) )
-        (print (format "{} ist {} Jahre alt!" a 59))
-        """,
-        }
-    number_of_testcases = len(testcases)
+    
     while True:
         test_case = input(f"testcase: ")
         if test_case=="exit":
             exit(0)
-        if test_case not in testcases:
-            if test_case.startswith("load "):
-                filepath = Path(test_case[5:].strip())
-                
-                with open(filepath)as filehandle:
-                    lisp_lines = "".join(filehandle.readlines())
-                    token_generator = tokenize(lisp_lines)
-            else:
-                lisp_lines = test_case
-                if lisp_lines.strip() == "":
-                    continue 
-                token_generator = tokenize(lisp_lines)
-        else:
-            lisp_lines = testcases[test_case]
-            token_generator = tokenize(lisp_lines)
 
-            print(f"test case:\n{lisp_lines}\n-----------\n")
+        token_generator = tokenize(test_case)
+
+        print(f"test case:\n{test_case}\n-----------\n")
 
         try:
             parsed_lisp = parse(token_generator, program=list())
