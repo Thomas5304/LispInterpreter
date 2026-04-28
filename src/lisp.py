@@ -917,8 +917,7 @@ def main() -> None:
             lisp_lines = testcases[test_case]
             token_generator = tokenize(lisp_lines)
 
-        print(f"test case:\n{lisp_lines}\n-----------\n")
-        parsed_lisp = parse(token_generator)
+            print(f"test case:\n{lisp_lines}\n-----------\n")
 
 >>>>>>> 5b273ba (Fixing my troubles with git)
         try:
