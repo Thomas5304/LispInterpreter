@@ -155,10 +155,10 @@ class Env:
         if name in self.data.keys():
             #print(f"found {name=} old value={self.data[name]}")
             self.data[name] = value
-            return 't'
+            return True
         if self.parent is None:
             #print("no parent, returning False")
-            return 'nil'
+            return False
         #print("search in parent")
         return self.parent.overwrite(name, value)
         
@@ -390,9 +390,6 @@ class LispInterpreter:
         for e in lisp_tree:
             ret = self.run_rec(env, e)
         #print(f"{str(env)=}")
-        if keep_env and not env.empty():
-            self.env = env
-            #print(f"keep {str(self.env)=}")
         
         return ret
 
@@ -433,7 +430,7 @@ class LispInterpreter:
         env.set(var, self.run_rec(env, value))
 
     def overwrite(self, env, var, value):
-        return env.overwrite(var, value)
+        return "t" if env.overwrite(var, value) else "nil"
     
 
 
