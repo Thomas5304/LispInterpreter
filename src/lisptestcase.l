@@ -12,3 +12,10 @@
 (print (map fib ( 3 4 5 6 7 8 9 10)))
 (fib 6)
        
+
+(defmacro unless (cond body) (quasiquote (if (not (unquote cond)) (unquote body))))
+
+(unless nil (define anhalter 42))
+(unless t (define fehlt 42))
+
+(print-env)

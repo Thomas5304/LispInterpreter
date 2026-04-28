@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 import os
 import sys
 from pathlib import Path
+import traceback
 
 def oldtokenize(lisp_expression:str)->Generator[str, None, None]:
     s = lisp_expression.replace("(", " ( ").replace(")"," ) ").replace("'", " ' ")
@@ -80,6 +81,9 @@ def atom(token):
             return float(token)
         except:
             return Symbol(token)  # Symbol (z. B. '+', 'x')        
+
+def is_list(x):return isinstance(x,list)
+def is_symbol(x):return isinstance(x,Symbol)
 
 def parse(tokens, program = list()):
     class TokenStream:
@@ -174,19 +178,7 @@ class Env:
             ret += str(self.parent)
         return ret + str(self.data)
 
-class FunctionDef:
-    def __init__(self, closure, params, body, call_interpreter) -> None:
-        self.closure = closure
-        self.params = params
-        self.body = body
-        self.call_interpreter = call_interpreter
 
-    def __call__(self, *values):
-        new_env = Env(self.closure)
-        for name, value in zip(self.params, values):
-            new_env.set(name, value)
-        return self.call_interpreter(new_env, self.body)
-        
 def lisp_format(fmt, *args):
     try:
         return fmt.format(*args)
@@ -196,33 +188,23 @@ def lisp_format(fmt, *args):
             return list(args)
     
 def greater(a, b):
-    #print(f"{a=} > {b=}")
     ret = True if a>b else None
-    #print(f"{ret=}")
     return ret
 
 def greaterequal(a, b):
-    #print(f"{a=} >= {b=}")
     ret = True if a>=b else None
-    #print(f"{ret=}")
     return ret
 
 def less(a, b):
-    #print(f"{a=} < {b=}")
     ret = True if a<b else None
-    #print(f"{ret=}")
     return ret
 
 def lessequal(a, b):
-    #print(f"{a=} <= {b=}")
     ret = True if a<=b else None
-    #print(f"{ret=}")
     return ret
 
 def equal(a, b):
-    #print(f"{a=} == {b=}")
     ret = True if a==b else None
-    #print(f"{ret=}")
     return ret
 
 def add(*args):
@@ -258,6 +240,7 @@ def div(*args):
     for arg in args:
         result /= arg
     return result
+
 def car(args):
     if not isinstance(args, list) or len(args)==0:
         raise ValueError("car expects non empty list")
@@ -272,7 +255,7 @@ def create_list(*args):
     return list(args)
             
 def lisp_map(func, *args):
-    if not isinstance(func, FunctionDef) and not callable(func):
+    if not isinstance(func, LispInterpreter.FunctionDef) and not callable(func):
         raise TypeError(f"map: can't call func {func}")
         
     for nr, lst in enumerate(args):
@@ -286,10 +269,67 @@ def lisp_map(func, *args):
         
     return result
 
+def cond(*args):
+    pass
+
 class LispInterpreter:
+    class FunctionDef:
+        def __init__(self, closure, params, body, call_interpreter) -> None:
+            self.closure = closure
+            self.params = params
+            self.body = body
+            self.call_interpreter = call_interpreter
+
+        def __call__(self, *values):
+            new_env = Env(self.closure)
+            for name, value in zip(self.params, values):
+                new_env.set(name, value)
+            return self.call_interpreter.run_rec(new_env, self.body)
+
+    class Macro:
+        def __init__(self, proc):
+            self.proc = proc
+
+        def expand(self, *raw_args):
+            result = self.proc(*raw_args)
+            print("Macro.expand:", result)
+            return result
+
+    def is_macro(x):return isinstance(x, LispInterpreter.Macro)
+    
+    def macroexpand(env, ast):
+        while is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
+            head = ast[0]
+            try:
+                val = env.get(head)
+            except Exception:
+                val = None
+
+            if LispInterpreter.is_macro(val):
+                macro = val
+
+                raw_args = ast[1:]
+
+                print(f"macroexpand {head} before: {raw_args}\n")
+
+                print(f"macro param: {macro.proc.params} set to {raw_args}\n")
+                ast = macro.expand(*raw_args)
+                if isinstance(ast, Env):
+                    raise TypeError("this is a Env")
+                print(f"macroexpand {head}  after: {ast}\n\n")
+
+                continue
+
+            else:
+                break
+
+        #print(f"after macroexpand {ast}")
+        return ast
 
     def __init__(self):
         self.env = Env()
+        self.env.set('nil', False)
+        self.env.set('t', True)
         self.env.set('format', lisp_format)
         self.env.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
         self.env.set('print', print)
@@ -303,13 +343,12 @@ class LispInterpreter:
         self.env.set('<='  , lessequal)
         self.env.set('<'   , less)
         self.env.set('=='  , equal)
+        self.env.set('not' , lambda x: not x)
         self.env.set('car' , car)
         self.env.set('cdr' , cdr)
         self.env.set('map', lisp_map)
         self.env.set('print-env', lambda *args: print(str(self.env)))
         self.env.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
-
-        self.functionplaceholder = FunctionDef(self.env, None, None, self.run_rec)
 
         self.specialforms = {
             'if': self.ifthenelse,
@@ -317,13 +356,14 @@ class LispInterpreter:
             'let': self.let,
             'lambda': self.create_lambda,
             'defun': self.define_function,
-            'quote': self.qoute,
-            'quasiquote': self.quasiqoute,
-            'unquote': self.unqoute,
+            'quote': self.quote,
+            'quasiquote': self.quasiquote,
+            'unquote': self.unquote,
             'eval': self.eval,
             'begin': self.begin,
             'set!': self.overwrite,
             'load': self.load_and_parse_lisp_file,
+            'defmacro': self.defmacro,
         }
         self.functions = {
 
@@ -343,6 +383,8 @@ class LispInterpreter:
 
         if not isinstance(expression, (list, tuple)):
             raise ValueError(f"invalid value {expression}")
+
+        expression = LispInterpreter.macroexpand(env, expression)
 
         function = expression[0]
         args = expression[1:]
@@ -367,12 +409,8 @@ class LispInterpreter:
                 func = env.get(function)
             else:
                 func = function
-            if isinstance(func, FunctionDef):
-                new_env = Env(func.closure)
-                for name, value in zip(func.params, values):
-                    new_env.set(name, value)
-
-                return self.run_rec(new_env, func.body)
+            if isinstance(func, LispInterpreter.FunctionDef):
+                return func(*values)
             elif callable(func):
                 #print(values)
                 return func(*values)
@@ -394,19 +432,22 @@ class LispInterpreter:
 
     def create_lambda(self, env, *args):
         params, body = args
-        return FunctionDef(env, params, body, self.run_rec)
+        return LispInterpreter.FunctionDef(env, params, body, self)
 
     def define_function(self, env, *args):
         try:
             name, params, body = args
             #print(f"try to add function {name} ({params}) {body}")
-            env.set(name, self.functionplaceholder)
-            func = FunctionDef(env, params, body, self.run_rec)
+            env.set(name, None)
+            func = LispInterpreter.FunctionDef(env, params, body, self)
             if not env.overwrite(name, func):
                 raise NameError(f"expecting function {name} in environtment")
         except NameError as ne:
             print(f"function {name} not defined: {ne}")
 
+    def defmacro(self, env, name, params, body):
+        proc = LispInterpreter.FunctionDef(env, params, body, self)
+        env.set(name, LispInterpreter.Macro(proc))
 
     def begin(self, env, *args):
         _, expressions = args
@@ -415,14 +456,13 @@ class LispInterpreter:
             ret = self.run_rec(env, expression)
         return ret
 
-    def ifthenelse(self, env, *args):
-        condition, true_branch, false_branch = args
+    def ifthenelse(self, env, condition, true_branch, false_branch = None):
         cond_result = self.run_rec(env, condition)
-        #print(f"{cond_result=}")
-        if cond_result is not None:
+        if cond_result is not None and (cond_result == "t" or cond_result == True):
             return self.run_rec(env, true_branch)
-        else:
+        elif false_branch is not None:
             return self.run_rec(env, false_branch)
+        return "nil"
 
     def define(self, env: Env, *args):
         (var, value) = args
@@ -457,20 +497,71 @@ class LispInterpreter:
         return [None]
 
 
-    def qoute(self, env, args):
+    def quote(self, env, *args):
         return args
 
-    
-    def quasiqoute(self, env, args):
+
+    def quasiquote(env, ast, depth=0):
+        """
+        ast: AST node (atom or list)
+        env: environment used to eval unquote parts
+        depth: nesting level of quasiquote (0 = not in quasiquote)
+        Returns: AST with unquotes evaluated (for macro expansion)
+        """
+        # atoms: just return quoted atom as-is (symbols/numbers)
+        if not is_list(ast):
+            return ast
+
+        # empty list stays empty
+        if len(ast) == 0:
+            return []
+
+        # If head is 'quasiquote', increase depth and recurse into its body
+        if is_symbol(ast[0]) and ast[0] == 'quasiquote':
+            # (quasiquote X) -> treat inner with depth+1
+            return ['quasiquote', quasiquote(ast[1], env, depth+1)]
+
+        # Handle unquote only when depth == 1 (i.e. this quasiquote level)
+        if is_symbol(ast[0]) and ast[0] == 'unquote':
+            if depth == 1:
+                # evaluate the inner expression in env and return the result (AST)
+                return eval_lisp(ast[1], env)
+            else:
+                # inside deeper quasiquote: treat as literal unquote form
+                return ['unquote', quasiquote(ast[1], env, depth-1)]
+
+        # Handle unquote-splicing, only valid inside list context when depth == 1
+        if is_symbol(ast[0]) and ast[0] == 'unquote-splicing':
+            if depth == 1:
+                # evaluate to a list that will later be spliced
+                return ('__UNQUOTE_SPLICED__', eval_lisp(ast[1], env))
+            else:
+                return ['unquote-splicing', quasiquote(ast[1], env, depth-1)]
+
+        # General list processing: iterate elements, handle splicing markers
+        result = []
+        for elem in ast:
+            q = quasiquote(elem, env, depth)
+            # If element returned a special splicing marker, splice its value into result
+            if isinstance(q, tuple) and q and q[0] == '__UNQUOTE_SPLICED__':
+                spliced = q[1]
+                if not isinstance(spliced, list):
+                    raise TypeError("unquote-splicing must evaluate to a list")
+                result.extend(spliced)
+            else:
+                result.append(q)
+        return result
+
+    def oldquasiquote(self, env, *args):
         if not isinstance(args, list):
             return args
         values = args   
-        if len(values)>0 and values[0]=="unqoute":
-            return self.run_rec(env, values[1])
-        return [self.quasiqoute(env, val) for val in values]
+        if len(values)>0 and values[0]=="unquote":
+            return self.run_rec(env, values[1:])
+        return [self.quasiquote(env, val) for val in values]
         
-    def unqoute(self, env, args):
-        (result,) = self.run_rec(env, args)
+    def unquote(self, env, *args):
+        result = self.run_rec(env, *args)
         return result
 
     def load_and_parse_lisp_file(self, env, filename):
@@ -612,6 +703,16 @@ def main() -> None:
             print("===============")
         except TypeError as te:
             print(f"Error: {te}\n===============\n")
+            traceback.print_exc()
+            print(f"===============\n")
+        except NameError as ne:
+            print(f"Error: {ne}\n===============\n")
+            traceback.print_exc()
+            print(f"===============\n")
+        except ValueError as ve:
+            print(f"Error: {ve}\n===============\n")
+            traceback.print_exc()
+            print(f"===============\n")
         
 if __name__ == '__main__':
     main()
