@@ -81,9 +81,12 @@ def atom(token):
             return float(token)
         except:
             return Symbol(token)  # Symbol (z. B. '+', 'x')
+<<<<<<< HEAD
 
 def is_list(x):return isinstance(x,list)
 def is_symbol(x):return isinstance(x,Symbol)
+=======
+>>>>>>> 5b273ba (Fixing my troubles with git)
 
 def parse(tokens, program = list()):
     class TokenStream:
@@ -221,16 +224,34 @@ class Env:
         return ret + str(self.data)
 
 
+<<<<<<< HEAD
+=======
+    def __call__(self, *values):
+        new_env = Env(self.closure)
+        for name, value in zip(self.params, values):
+            new_env.set(name, value)
+        return self.call_interpreter(new_env, self.body)
+
+>>>>>>> 5b273ba (Fixing my troubles with git)
 def lisp_format(fmt, *args):
     try:
         return fmt.format(*args)
     except Exception as e:
         raise ValueError(f"format Fehler: {e}")
+<<<<<<< HEAD
 
 def create_list(self, args):
      return list(args)
 
 def greater(a, b):
+=======
+        def create_list(self, args):
+            return list(args)
+
+def greater(args):
+    a, b = args
+    #print(f"{a=} > {b=}")
+>>>>>>> 5b273ba (Fixing my troubles with git)
     ret = True if a>b else None
     return ret
 
@@ -311,6 +332,11 @@ def lisp_map(func, *args):
         result.append(value)
 
     return result
+<<<<<<< HEAD
+=======
+
+class LispInterpreter:
+>>>>>>> 5b273ba (Fixing my troubles with git)
 
 def lisp_mapcar(func, *lists):
     # Prüfe: mindestens eine Liste
@@ -331,6 +357,7 @@ def lisp_mapcar(func, *lists):
         lists = [lst[1:] for lst in lists]
     return result
 
+<<<<<<< HEAD
 def lisp_apply(func, *args):
     # args: optional vorangestellte Argumente, das letzte Argument muss eine Liste sein
     if len(args) == 0:
@@ -472,6 +499,11 @@ def eval_lisp(env:Env, expression):
         'print-eval': print_and_eval,
     }
     try:
+=======
+    def run_rec(self, env:Env, expression: list[Any]|Any):
+        #print(f"{expression=}")
+
+>>>>>>> 5b273ba (Fixing my troubles with git)
         if isinstance(expression, Symbol):
             return env.get(expression)
 
@@ -507,11 +539,42 @@ def eval_lisp(env:Env, expression):
         elif callable(func):
             return func(*values)
         else:
+<<<<<<< HEAD
             raise ValueError(f"unknown function {function}")
     except ValueError as ve:
         print(f"{ve}\n in {print_lisp_recursive(expression)}")
     except Exception as e:
         print(f"{e}\n in {print_lisp_recursive(expression)}")
+=======
+            return self.run_rec(env, false_branch)
+
+    def define(self, env: Env, *args):
+        (var, value) = args
+        env.set(var, self.run_rec(env, value))
+
+    def let(self, env: Env, vars, *expressions):
+        env = Env(env)
+
+        for var in vars:
+            self.define(env, *var)
+
+        ret = None
+
+        for expression in expressions:
+            ret = self.run_rec(env, expression)
+
+        env = env.parent
+
+        return ret
+
+    def map(self, env, *args):
+        func = self.run_rec(env, args[0])
+        list_of_values = self.run_rec(env, args[1:])
+
+        if len(list_of_values)==1:
+            return [self.run_rec(env, [func, value]) for value in values]
+        return [None]
+>>>>>>> 5b273ba (Fixing my troubles with git)
 
 
 def run(lisp_tree : list[Any], env:Env):
@@ -673,6 +736,26 @@ def eval(env, args):
     value = eval_lisp(env, args)
     return eval_lisp(env, value)
 
+<<<<<<< HEAD
+=======
+
+    def quasiqoute(self, env, args):
+        if not isinstance(args, list):
+            return args
+        values = args
+        if len(values)>0 and values[0]=="unqoute":
+            return self.run_rec(env, values[1])
+        return [self.quasiqoute(env, val) for val in values]
+
+    def unqoute(self, env, args):
+        (result,) = self.run_rec(env, args)
+        return result
+
+    def eval(self, env, args):
+        value = self.run_rec(env, args)
+        return self.run_rec(env, value)
+
+>>>>>>> 5b273ba (Fixing my troubles with git)
 def main() -> None:
     debug_level = 0
     main_env = Env()
@@ -681,6 +764,7 @@ def main() -> None:
     programpath = program.parent
     programname = program.name
     print(f"{programname} located in {programpath}")
+<<<<<<< HEAD
 
     lispfiles = [programpath / Path("lispfile.lisp"),
                 programpath / "macro.l"]
@@ -720,6 +804,123 @@ def main() -> None:
         if debug_level:
             print(f"test case:\n{test_case}\n-----------\n")
 
+=======
+    lispfile = programpath / Path("lispfile.lisp")
+
+    interpreter = LispInterpreter()
+    if lispfile.exists():
+        parsed_lisp = parse(tokenize_file(lispfile))
+
+        interpreter.run(parsed_lisp, keep_env=True)
+    else:
+        print(f"Can't find {lispfile} from here {os.getcwd()}")
+        exit(1)
+
+
+    testcases = {
+        "testcase1" : textwrap.dedent("""\
+        (my-func 1 2 ( + 1 2 )
+        """),
+        "testcase2": textwrap.dedent("""\
+        (my-func 1 2 3 (my-func 4 5 (+ 3 3)))
+        (+ 10 (* 3 6))
+        """),
+        "testcase3": textwrap.dedent("""\
+        (my-func 1 2 3 (my-func 4 5 (+ 3 3))))
+        """),
+        "testcase4": """\
+    (define a 10)
+    (define addN
+        (lambda (n)
+            (lambda (x) (+ x n)
+            )
+        )
+    )
+    (list (let ((a 2) (b 3 )) (+ 1 a b (* 2 2) (if nil (/ 2 1) (+ 3 2))) (+ a b)) 10)""",
+
+    "testcase5": """\
+    (define a 10)
+    (defun test (m) (lambda (x) (* m x)))
+    (define addN
+        (lambda (n)
+            (lambda (x) (+ x n)
+            )
+        )
+    )
+    (define add5 (addN 5))
+    (define mul10 (test 10))
+    ((add5 a) (mul10 3))
+    (map (lambda (v) (* 3.14 v)) (10 12 14))
+    """,
+    "testcase6": """\
+    (defun fib (x)
+        (if (>= x 3)
+            (car (cdr (print
+                (
+                    x
+                    (+
+                        (fib (- x 1))
+                        (fib (- x 2))
+                    )
+                )
+            )))
+            (print 1)
+        )
+    )
+    (print (map (lambda (x) (list x (fib x))) (3 4 5 6 7 8 9 10 11 12)))
+        """,
+    "testcase7": """\
+    (defun sqr (x) (x (* x x)))
+    (map sqr (4 5))
+    """,
+    "testcase8": """\
+(defun double (x) (* 2 x))
+(define lst '(1 2 3 4 5))
+(print lst " -> " (map double lst))
+((lambda (x) (* 3 x)) 3)
+    """,
+
+    "testcase9": """(let ((b 10)( a `( + 1 2 (+ 2 1) 4)))
+        (print a)
+        (print a (car a) (cdr a))
+        (print (eval a))
+        )""",
+    "testcase10": """\
+        (define print (lambda (a) '(print a)))
+        (define a "Thomas Dilling")
+        (define b "Hallo ")
+        (define c 10)
+        (print (string-append b a " " c) )
+        (print (format "{} ist {} Jahre alt!" a 59))
+        """,
+        }
+    number_of_testcases = len(testcases)
+
+
+    while True:
+        test_case = input(f"testcase: ")
+        if test_case=="exit":
+            exit(0)
+        if test_case not in testcases:
+            if test_case.startswith("load "):
+                filepath = Path(test_case[5:].strip())
+
+                with open(filepath)as filehandle:
+                    lisp_lines = "".join(filehandle.readlines())
+                    token_generator = tokenize(lisp_lines)
+            else:
+                lisp_lines = test_case
+                if lisp_lines.strip() == "":
+                    continue
+                token_generator = tokenize(lisp_lines)
+        else:
+            lisp_lines = testcases[test_case]
+            token_generator = tokenize(lisp_lines)
+
+        print(f"test case:\n{lisp_lines}\n-----------\n")
+        parsed_lisp = parse(token_generator)
+
+>>>>>>> 5b273ba (Fixing my troubles with git)
         try:
             parsed_lisp = parse(token_generator, program=list())
 
@@ -728,6 +929,7 @@ def main() -> None:
                 print("===============")
         except TypeError as te:
             print(f"Error: {te}\n===============\n")
+<<<<<<< HEAD
             traceback.print_exc()
             print(f"===============\n")
         except NameError as ne:
@@ -738,6 +940,8 @@ def main() -> None:
             print(f"Error: {ve}\n===============\n")
             traceback.print_exc()
             print(f"===============\n")
+=======
+>>>>>>> 5b273ba (Fixing my troubles with git)
 
 if __name__ == '__main__':
     main()
