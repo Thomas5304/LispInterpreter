@@ -307,7 +307,7 @@ class LispInterpreter:
         self.env.set('cdr' , cdr)
         self.env.set('map', lisp_map)
         self.env.set('print-env', lambda *args: print(str(self.env)))
-        self.env.set('exit', lambda code: exit(code) if code is not None else exit(0))
+        self.env.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
 
         self.functionplaceholder = FunctionDef(self.env, None, None, self.run_rec)
 
@@ -317,7 +317,6 @@ class LispInterpreter:
             'let': self.let,
             'lambda': self.create_lambda,
             'defun': self.define_function,
-            #'map': self.map,
             'quote': self.qoute,
             'quasiquote': self.quasiqoute,
             'unquote': self.unqoute,
@@ -604,20 +603,15 @@ def main() -> None:
             lisp_lines = testcases[test_case]
             token_generator = tokenize(lisp_lines)
 
-        if False:
-            try:
-                print(f"test case:\n{lisp_lines}\n-----------\n")
-                parsed_lisp = parse(token_generator, program=list())
-                
-                print(interpreter.run(parsed_lisp, keep_env=True))
-            except NameError as ne:
-                print(ne)
-        else:
             print(f"test case:\n{lisp_lines}\n-----------\n")
+
+        try:
             parsed_lisp = parse(token_generator, program=list())
-                
+
             print(interpreter.run(parsed_lisp, keep_env=True))
-        print("===============")
+            print("===============")
+        except TypeError as te:
+            print(f"Error: {te}\n===============\n")
         
 if __name__ == '__main__':
     main()
