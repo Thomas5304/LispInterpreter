@@ -272,6 +272,23 @@ def lisp_map(func, *args):
 def cond(*args):
     pass
 
+def print_lisp_recursive(expression):
+    if isinstance(expression, Symbol):
+        return expression
+    elif isinstance( expression, str):
+        return f'"{expression}"'
+    elif isinstance( expression, (int, float, str)):
+        return str(expression)
+    elif isinstance(expression, (tuple, list)):
+        ret = "("
+        for e in expression:
+            ret+=print_lisp_recursive(e)+" "
+        ret.rstrip()
+        ret += ")"
+        return ret
+    return "???"
+        
+
 class LispInterpreter:
     class FunctionDef:
         def __init__(self, closure, params, body, call_interpreter) -> None:
@@ -280,10 +297,30 @@ class LispInterpreter:
             self.body = body
             self.call_interpreter = call_interpreter
 
+
+        def bind_params(self, *args):
+            new_env =Env(self.closure)
+            if '&rest' in self.params:
+                idx = self.params.index('&rest')
+                before = self.params[:idx]
+                if idx+1 > len(self.params):
+                    raise SyntaxError("&rest needs a following parameter name")
+                rest_name = self.params[idx+1]
+                if len(args) < len(before):
+                    raise TypeError("missing arguments")
+                for name, val in zip(before, args[:len(before):]):
+                    new_env.set(name,val)
+                new_env.set(rest_name, list(args[len(before):]))
+            else:
+                if len(args) != len(self.params):
+                    raise TypeError(f"wrong number of arguments, expecting {len(self.params)} got {len(args)}")
+
+                for name, val in zip(self.params, args):
+                    new_env.set(name, val)
+            return new_env
+            
         def __call__(self, *values):
-            new_env = Env(self.closure)
-            for name, value in zip(self.params, values):
-                new_env.set(name, value)
+            new_env = self.bind_params(*values)
             return self.call_interpreter.run_rec(new_env, self.body)
 
     class Macro:
@@ -328,6 +365,7 @@ class LispInterpreter:
 
     def __init__(self, debug_level=0):
         self.debug_level = debug_level
+        self.last_value = None
         self.env = Env()
         self.env.set('nil', False)
         self.env.set('t', True)
@@ -336,6 +374,10 @@ class LispInterpreter:
         self.env.set('print', print)
         self.env.set('list', create_list)
         self.env.set('cons', lambda l, a: l.append(a))
+        self.env.set('and', lambda a, b: a and b)
+        self.env.set('or', lambda a, b: a or b)
+        self.env.set('zip', lambda *a: list(zip(*a)))
+        self.env.set('null', lambda a: "t" if a==[] or a=="nil" else "nil")
         self.env.set('+'   , add)
         self.env.set('-'   , sub)
         self.env.set('*'   , mult)
@@ -353,6 +395,7 @@ class LispInterpreter:
         self.env.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
         self.env.set('debug', lambda debug_level=None: self.set_debug_level(debug_level))
         self.env.set('set!', lambda v: "t" if self.overwrite(v) else "nil")
+        self.env.set('repl', lambda : self.last_value)
 
         self.specialforms = {
             'if': self.ifthenelse,
@@ -373,73 +416,78 @@ class LispInterpreter:
         self.functions = {
 
         }
+        
     def set_debug_level(self, debug_level = None):
         if debug_level is not None:
             self.debug_level = debug_level
         return self.debug_level
         
     def run_rec(self, env:Env, expression):
-        if self.debug_level:
-            print(f"{expression=}")
-        
-        if isinstance(expression, Symbol):
-            return env.get(expression)
+        try:
+            if self.debug_level:
+                print(f"{expression=}")
+
+            if isinstance(expression, Symbol):
+                return env.get(expression)
+
+            if isinstance(expression, str):
+                return expression
+
+            if isinstance(expression, (float,int)):
+                return expression
+
+            if not isinstance(expression, (list, tuple)):
+                raise ValueError(f"invalid value {expression}")
+
+            expression = LispInterpreter.macroexpand(env, expression)
+
+            function = expression[0]
+            args = expression[1:]
+
+            if isinstance(function, list):
+                function = self.run_rec(env, function)
+
+            if function in self.specialforms:
+                return self.specialforms[function](env, *args)
+
+
+            values = [self.run_rec(env, arg) for arg in args]
+            if self.debug_level:
+                print(f"{    values=}")
+
+            #if isinstance(function, (int, float)):
+            #    return [function, *values]
+
+            if function in self.functions.keys():
+                return self.functions[function](*values)
+            else:
+                if isinstance(function, str):
+                    func = env.get(function)
+                else:
+                    func = function
+                if isinstance(func, LispInterpreter.FunctionDef):
+                    return func(*values)
+                elif callable(func):
+                    #print(values)
+                    return func(*values)
+                else:
+                    raise ValueError(f"unknown function {function}")
+        except ValueError as ve:
+            print(f"{ve}\n in {print_lisp_recursive(expression)}")
+        except Exception as e:
+            print(f"{e}\n in {print_lisp_recursive(expression)}")
+
             
-        if isinstance(expression, str):
-            return expression
-
-        if isinstance(expression, (float,int)):
-            return expression
-
-        if not isinstance(expression, (list, tuple)):
-            raise ValueError(f"invalid value {expression}")
-
-        expression = LispInterpreter.macroexpand(env, expression)
-
-        function = expression[0]
-        args = expression[1:]
-
-        if isinstance(function, list):
-            function = self.run_rec(env, function)
-
-        if function in self.specialforms:
-            return self.specialforms[function](env, *args)
-
-
-        values = [self.run_rec(env, arg) for arg in args]
-        if self.debug_level:
-            print(f"{    values=}")
-
-        if isinstance(function, (int, float)):
-            return [function, *values]
-
-        if function in self.functions.keys():
-            return self.functions[function](*values)
-        else:
-            if isinstance(function, str):
-                func = env.get(function)
-            else:
-                func = function
-            if isinstance(func, LispInterpreter.FunctionDef):
-                return func(*values)
-            elif callable(func):
-                #print(values)
-                return func(*values)
-            else:
-                raise ValueError(f"unknown function {function}")
-
     def run(self, lisp_tree : list[Any], keep_env = False):
         if keep_env:
             env = self.env
         else:
             env : Env = Env(self.env)
         #print(f"run starts with {str(env)=}")
-        ret = None
         for e in lisp_tree:
-            ret = self.run_rec(env, e)
+            self.last_value = self.run_rec(env, e)
         #print(f"{str(env)=}")
         
-        return ret
 
     def create_lambda(self, env, *args):
         params, body = args
@@ -518,7 +566,7 @@ class LispInterpreter:
         return [None]
 
 
-    def quote(self, env, *args):
+    def quote(self, env, args):
         return args
 
 
