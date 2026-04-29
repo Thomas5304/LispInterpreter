@@ -395,7 +395,7 @@ class LispInterpreter:
         self.env.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
         self.env.set('debug', lambda debug_level=None: self.set_debug_level(debug_level))
         self.env.set('set!', lambda v: "t" if self.overwrite(v) else "nil")
-        self.env.set('repl', lambda : self.last_value)
+        self.env.set('last-expr!', None)
 
         self.specialforms = {
             'if': self.ifthenelse,
@@ -485,7 +485,9 @@ class LispInterpreter:
             env : Env = Env(self.env)
         #print(f"run starts with {str(env)=}")
         for e in lisp_tree:
-            self.last_value = self.run_rec(env, e)
+            self.env.set('last-expr!', self.run_rec(env, e))
+        if self.env.get('last-expr!') is not None:
+            print(self.env.get('last-expr!'))
         #print(f"{str(env)=}")
         
 
