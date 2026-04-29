@@ -248,7 +248,7 @@ def car(args):
     
 def cdr(args):
     if not isinstance(args, list) or len(args)==0:
-        raise ValueError("car expects non empty list")
+        return 'nil'
     return args[1:]
 
 def create_list(*args):
@@ -649,7 +649,7 @@ def main() -> None:
         try:
             parsed_lisp = parse(token_generator, program=list())
 
-            print(interpreter.run(parsed_lisp, keep_env=True))
+            interpreter.run(parsed_lisp, keep_env=True)
             if interpreter.debug_level:
                 print("===============")
         except TypeError as te:

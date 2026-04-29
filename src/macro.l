@@ -14,3 +14,5 @@
 (defun pwr (x y) (if (> y 0) (* x (pwr x (- y 1))) 1))
 (print (map (lambda (x) (pwr 2 x)) (range 10)))
 (debug 0)
+(define mylist (list 1 2 3 4))
+(cdr (cdr(cdr mylist)))
