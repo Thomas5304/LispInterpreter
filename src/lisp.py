@@ -103,21 +103,26 @@ def parse(tokens, program = list()):
                 self.buffer = next(self.gen)
             return self.buffer
 
+    open_count = 0
+
     def parse_stream(token_stream):
+        nonlocal open_count
         token = token_stream.next()
 
         #print(token)
 
         if token == '(':
+            open_count+=1
             lst = []
             while token_stream.peek() != ')':
                 lst.append(parse_stream(token_stream))
             _ = token_stream.next()  # ')'
-
+            open_count-=1
             #print(f"close list {lst}")
             return lst
 
         elif token == ')':
+            open_count-=1
             raise SyntaxError("Unerwartetes )")
 
         elif token == "'":
@@ -137,7 +142,7 @@ def parse(tokens, program = list()):
         while True:
             program.append(parse_stream(stream))
     except StopIteration:
-        return program
+        return program, open_count>0
 
 class Env:
     def __init__(self, parent = None):
@@ -638,7 +643,9 @@ class LispInterpreter:
         if not filepath.exists():
             return "nil"
 
-        parsed_lisp = parse(tokenize_file(filepath), program=list())
+        parsed_lisp, cont = parse(tokenize_file(filepath), program=list())
+        if not cont:
+            raise SyntaxError(f"syntax error in {filepath}")
 
         self.run(parsed_lisp, keep_env = True)
 
@@ -663,7 +670,9 @@ def main() -> None:
 
         if lispfile.exists():
             try:
-                parsed_lisp = parse(tokenize_file(lispfile))
+                parsed_lisp, cont = parse(tokenize_file(lispfile))
+                if not cont:
+                    raise SyntaxError(f"syntax error in {lispfile}")
 
                 interpreter.run(parsed_lisp, keep_env=True)
             except TypeError as te:
@@ -682,7 +691,7 @@ def main() -> None:
             print(f"Can't find {lispfile} from here {os.getcwd()}")
 
 
-
+    program = list()
     while True:
         prompt = ""
         if interpreter.debug_level:
@@ -695,11 +704,12 @@ def main() -> None:
             print(f"test case:\n{test_case}\n-----------\n")
 
         try:
-            parsed_lisp = parse(token_generator, program=list())
-
-            interpreter.run(parsed_lisp, keep_env=True)
+            parsed_lisp, cont = parse(token_generator, program=program)
+            if cont:
+                interpreter.run(parsed_lisp, keep_env=True)
+                program = list()
             if interpreter.debug_level:
-                print("===============")
+               print("=============== closed {cont}")
         except TypeError as te:
             print(f"Error: {te}\n===============\n")
             traceback.print_exc()
