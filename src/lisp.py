@@ -14,7 +14,7 @@ import traceback
 def oldtokenize(lisp_expression:str)->Generator[str, None, None]:
     s = lisp_expression.replace("(", " ( ").replace(")"," ) ").replace("'", " ' ")
     s = s.replace("`", " ` ").replace("'", " ' ")
-    
+
     for token in s.split():
         yield token
 
@@ -70,7 +70,7 @@ def tokenize_file(filename: Path)->Generator[str, None, None]:
 
 class Symbol(str):
     pass
-    
+
 def atom(token):
     if isinstance(token, tuple):
         return token[1]
@@ -80,7 +80,7 @@ def atom(token):
         try:
             return float(token)
         except:
-            return Symbol(token)  # Symbol (z. B. '+', 'x')        
+            return Symbol(token)  # Symbol (z. B. '+', 'x')
 
 def is_list(x):return isinstance(x,list)
 def is_symbol(x):return isinstance(x,Symbol)
@@ -90,55 +90,55 @@ def parse(tokens, program = list()):
         def __init__(self, generator):
             self.gen = generator
             self.buffer = None
-    
+
         def next(self):
             if self.buffer is not None:
                 token = self.buffer
                 self.buffer = None
                 return token
             return next(self.gen)
-    
+
         def peek(self):
             if self.buffer is None:
                 self.buffer = next(self.gen)
             return self.buffer
-    
+
     def parse_stream(token_stream):
         token = token_stream.next()
-        
+
         #print(token)
-    
+
         if token == '(':
             lst = []
             while token_stream.peek() != ')':
                 lst.append(parse_stream(token_stream))
             _ = token_stream.next()  # ')'
-            
+
             #print(f"close list {lst}")
             return lst
-    
+
         elif token == ')':
             raise SyntaxError("Unerwartetes )")
-    
+
         elif token == "'":
             return ['quote', parse_stream(token_stream)]
-    
+
         elif token == '`':
             return ['quasiquote', parse_stream(token_stream)]
-    
+
         elif token == ',':
             return ['unquote', parse_stream(token_stream)]
-    
+
         else:
             return atom(token)
-            
+
     stream = TokenStream(tokens)
     try:
         while True:
             program.append(parse_stream(stream))
     except StopIteration:
         return program
-            
+
 class Env:
     def __init__(self, parent = None):
         self.data = {}
@@ -165,7 +165,7 @@ class Env:
             return False
         #print("search in parent")
         return self.parent.overwrite(name, value)
-        
+
 
     def empty(self):
         if len(self.data) == 0:
@@ -186,7 +186,7 @@ def lisp_format(fmt, *args):
         raise ValueError(f"format Fehler: {e}")
         def create_list(self, args):
             return list(args)
-    
+
 def greater(a, b):
     ret = True if a>b else None
     return ret
@@ -245,7 +245,7 @@ def car(args):
     if not isinstance(args, list) or len(args)==0:
         raise ValueError("car expects non empty list")
     return args[0]
-    
+
 def cdr(args):
     if not isinstance(args, list) or len(args)==0:
         return 'nil'
@@ -253,20 +253,20 @@ def cdr(args):
 
 def create_list(*args):
     return list(args)
-            
+
 def lisp_map(func, *args):
     if not isinstance(func, LispInterpreter.FunctionDef) and not callable(func):
         raise TypeError(f"map: can't call func {func}")
-        
+
     for nr, lst in enumerate(args):
         if not isinstance(lst, list):
             raise TypeError(f"map: element at {nr} is not a list")
     result = []
-    
+
     for items in zip(*args):
         value = func(*items)
         result.append(value)
-        
+
     return result
 
 def cond(*args):
@@ -287,7 +287,7 @@ def print_lisp_recursive(expression):
         ret += ")"
         return ret
     return "???"
-        
+
 
 class LispInterpreter:
     class FunctionDef:
@@ -318,7 +318,7 @@ class LispInterpreter:
                 for name, val in zip(self.params, args):
                     new_env.set(name, val)
             return new_env
-            
+
         def __call__(self, *values):
             new_env = self.bind_params(*values)
             return self.call_interpreter.run_rec(new_env, self.body)
@@ -333,7 +333,7 @@ class LispInterpreter:
             return result
 
     def is_macro(x):return isinstance(x, LispInterpreter.Macro)
-    
+
     def macroexpand(env, ast):
         while is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
             head = ast[0]
@@ -394,7 +394,7 @@ class LispInterpreter:
         self.env.set('print-env', lambda *args: print(str(self.env)))
         self.env.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
         self.env.set('debug', lambda debug_level=None: self.set_debug_level(debug_level))
-        self.env.set('set!', lambda v: "t" if self.overwrite(v) else "nil")
+        #self.env.set('set!', lambda var,value: "t" if self.overwrite(var, value) else "nil")
         self.env.set('last-expr!', None)
 
         self.specialforms = {
@@ -408,7 +408,7 @@ class LispInterpreter:
             'unquote': self.unquote,
             'eval': self.eval,
             'begin': self.begin,
-            #'set!': self.overwrite,
+            'set!': self.overwrite,
             'load': self.load_and_parse_lisp_file,
             'defmacro': self.defmacro,
             'while': self.while_loop,
@@ -416,12 +416,12 @@ class LispInterpreter:
         self.functions = {
 
         }
-        
+
     def set_debug_level(self, debug_level = None):
         if debug_level is not None:
             self.debug_level = debug_level
         return self.debug_level
-        
+
     def run_rec(self, env:Env, expression):
         try:
             if self.debug_level:
@@ -477,7 +477,7 @@ class LispInterpreter:
         except Exception as e:
             print(f"{e}\n in {print_lisp_recursive(expression)}")
 
-            
+
     def run(self, lisp_tree : list[Any], keep_env = False):
         if keep_env:
             env = self.env
@@ -489,7 +489,7 @@ class LispInterpreter:
         if self.env.get('last-expr!') is not None:
             print(self.env.get('last-expr!'))
         #print(f"{str(env)=}")
-        
+
 
     def create_lambda(self, env, *args):
         params, body = args
@@ -541,8 +541,6 @@ class LispInterpreter:
 
     def overwrite(self, env, var, value):
         return "t" if env.overwrite(var, value) else "nil"
-    
-
 
     def let(self, env: Env, vars, *expressions):
         env = Env(env)
@@ -562,7 +560,7 @@ class LispInterpreter:
     def map(self, env, *args):
         func = self.run_rec(env, args[0])
         list_of_values = self.run_rec(env, args[1:])
-        
+
         if len(list_of_values)==1:
             return [self.run_rec(env, [func, value]) for value in values]
         return [None]
@@ -626,11 +624,11 @@ class LispInterpreter:
     def oldquasiquote(self, env, *args):
         if not isinstance(args, list):
             return args
-        values = args   
+        values = args
         if len(values)>0 and values[0]=="unquote":
             return self.run_rec(env, values[1:])
         return [self.quasiquote(env, val) for val in values]
-        
+
     def unquote(self, env, *args):
         result = self.run_rec(env, *args)
         return result
@@ -643,13 +641,13 @@ class LispInterpreter:
         parsed_lisp = parse(tokenize_file(filepath), program=list())
 
         self.run(parsed_lisp, keep_env = True)
-        
+
         return "t"
-        
+
     def eval(self, env, args):
         value = self.run_rec(env, args)
         return self.run_rec(env, value)
-        
+
 def main() -> None:
     program = Path(sys.argv[0])
     programpath = program.parent
@@ -662,7 +660,7 @@ def main() -> None:
     interpreter = LispInterpreter()
 
     for lispfile in lispfiles:
-    
+
         if lispfile.exists():
             try:
                 parsed_lisp = parse(tokenize_file(lispfile))
@@ -682,15 +680,15 @@ def main() -> None:
                 print(f"===============\n")
         else:
             print(f"Can't find {lispfile} from here {os.getcwd()}")
-        
-    
-    
+
+
+
     while True:
         prompt = ""
         if interpreter.debug_level:
             prompt = f"testcase: "
         test_case = input(prompt)
-        
+
         token_generator = tokenize(test_case)
 
         if interpreter.debug_level:
@@ -714,6 +712,6 @@ def main() -> None:
             print(f"Error: {ve}\n===============\n")
             traceback.print_exc()
             print(f"===============\n")
-        
+
 if __name__ == '__main__':
     main()
