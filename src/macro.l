@@ -1,3 +1,16 @@
 (defmacro unless (cond body) (quasiquote (if (not (unquote cond)) (unquote body))))
 (unless t (print "Fail"))
+
 (unless nil (print "Pass"))
+(debug 0)
+(defmacro range (max)
+(let ((i 0) (res (list)))
+  (while (< i max)
+    (cons res i)
+    (define i (+ i 1))
+    )
+  res
+  ))
+(defun pwr (x y) (if (> y 0) (* x (pwr x (- y 1))) 1))
+(print (map (lambda (x) (pwr 2 x)) (range 10)))
+(debug 0)

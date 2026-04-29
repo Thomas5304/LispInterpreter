@@ -326,7 +326,8 @@ class LispInterpreter:
         #print(f"after macroexpand {ast}")
         return ast
 
-    def __init__(self):
+    def __init__(self, debug_level=0):
+        self.debug_level = debug_level
         self.env = Env()
         self.env.set('nil', False)
         self.env.set('t', True)
@@ -334,6 +335,7 @@ class LispInterpreter:
         self.env.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
         self.env.set('print', print)
         self.env.set('list', create_list)
+        self.env.set('cons', lambda l, a: l.append(a))
         self.env.set('+'   , add)
         self.env.set('-'   , sub)
         self.env.set('*'   , mult)
@@ -349,6 +351,8 @@ class LispInterpreter:
         self.env.set('map', lisp_map)
         self.env.set('print-env', lambda *args: print(str(self.env)))
         self.env.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
+        self.env.set('debug', lambda debug_level=None: self.set_debug_level(debug_level))
+        self.env.set('set!', lambda v: "t" if self.overwrite(v) else "nil")
 
         self.specialforms = {
             'if': self.ifthenelse,
@@ -361,16 +365,22 @@ class LispInterpreter:
             'unquote': self.unquote,
             'eval': self.eval,
             'begin': self.begin,
-            'set!': self.overwrite,
+            #'set!': self.overwrite,
             'load': self.load_and_parse_lisp_file,
             'defmacro': self.defmacro,
+            'while': self.while_loop,
         }
         self.functions = {
 
         }
-
+    def set_debug_level(self, debug_level = None):
+        if debug_level is not None:
+            self.debug_level = debug_level
+        return self.debug_level
+        
     def run_rec(self, env:Env, expression):
-        #print(f"{expression=}")
+        if self.debug_level:
+            print(f"{expression=}")
         
         if isinstance(expression, Symbol):
             return env.get(expression)
@@ -397,7 +407,8 @@ class LispInterpreter:
 
 
         values = [self.run_rec(env, arg) for arg in args]
-        #print(f"{values=}")
+        if self.debug_level:
+            print(f"{    values=}")
 
         if isinstance(function, (int, float)):
             return [function, *values]
@@ -444,6 +455,16 @@ class LispInterpreter:
                 raise NameError(f"expecting function {name} in environtment")
         except NameError as ne:
             print(f"function {name} not defined: {ne}")
+
+    def while_loop(self, env, cond_expr, *body_exprs):
+        last_val = None
+        while(self.run_rec(env, cond_expr)):
+            try:
+                for expr in body_exprs:
+                    last_val = self.run_rec(env, expr)
+            except Exception as e:
+                print(e)
+        return last_val
 
     def defmacro(self, env, name, params, body):
         proc = LispInterpreter.FunctionDef(env, params, body, self)
@@ -593,28 +614,44 @@ def main() -> None:
     for lispfile in lispfiles:
     
         if lispfile.exists():
-            parsed_lisp = parse(tokenize_file(lispfile))
+            try:
+                parsed_lisp = parse(tokenize_file(lispfile))
 
-            interpreter.run(parsed_lisp, keep_env=True)
+                interpreter.run(parsed_lisp, keep_env=True)
+            except TypeError as te:
+                print(f"Error: {te}\n===============\n")
+                traceback.print_exc()
+                print(f"===============\n")
+            except NameError as ne:
+                print(f"Error: {ne}\n===============\n")
+                traceback.print_exc()
+                print(f"===============\n")
+            except ValueError as ve:
+                print(f"Error: {ve}\n===============\n")
+                traceback.print_exc()
+                print(f"===============\n")
         else:
             print(f"Can't find {lispfile} from here {os.getcwd()}")
         
     
     
     while True:
-        test_case = input(f"testcase: ")
-        if test_case=="exit":
-            exit(0)
-
+        prompt = ""
+        if interpreter.debug_level:
+            prompt = f"testcase: "
+        test_case = input(prompt)
+        
         token_generator = tokenize(test_case)
 
-        print(f"test case:\n{test_case}\n-----------\n")
+        if interpreter.debug_level:
+            print(f"test case:\n{test_case}\n-----------\n")
 
         try:
             parsed_lisp = parse(token_generator, program=list())
 
             print(interpreter.run(parsed_lisp, keep_env=True))
-            print("===============")
+            if interpreter.debug_level:
+                print("===============")
         except TypeError as te:
             print(f"Error: {te}\n===============\n")
             traceback.print_exc()
