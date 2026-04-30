@@ -297,7 +297,7 @@ def lisp_apply(func, *args):
 
     #print(f"{arglist=}")
     #print(f"{prefix=}")
-    
+
     if not isinstance(arglist, list):
         raise TypeError("apply: letztes Argument muss eine Liste sein")
 
@@ -312,7 +312,7 @@ def cond(*args):
 
 #(print-eval (apply + 20 30 '(1 2 3 4 5)))
 
-def print_lisp_recursive(*expression):
+def print_lisp_recursive(expression):
     if isinstance(expression, Symbol):
         return expression
     elif isinstance( expression, str):
@@ -466,7 +466,7 @@ class LispInterpreter:
 
     def print_and_eval(self, env, *args):
         toprint = print_lisp_recursive(*args)
-        evaluated = "nil"#self.run_rec(env, *args)
+        evaluated = self.run_rec(env, *args)
         print(f"{toprint} evaluates to {evaluated}")
         return evaluated
 
