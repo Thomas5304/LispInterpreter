@@ -9,11 +9,12 @@ from dataclasses import dataclass, field
 import os
 import sys
 from pathlib import Path
+import traceback
 
 def oldtokenize(lisp_expression:str)->Generator[str, None, None]:
     s = lisp_expression.replace("(", " ( ").replace(")"," ) ").replace("'", " ' ")
     s = s.replace("`", " ` ").replace("'", " ' ")
-    
+
     for token in s.split():
         yield token
 
@@ -69,7 +70,7 @@ def tokenize_file(filename: Path)->Generator[str, None, None]:
 
 class Symbol(str):
     pass
-    
+
 def atom(token):
     if isinstance(token, tuple):
         return token[1]
@@ -79,62 +80,65 @@ def atom(token):
         try:
             return float(token)
         except:
-            return Symbol(token)  # Symbol (z. B. '+', 'x')        
+            return Symbol(token)  # Symbol (z. B. '+', 'x')
+
+def is_list(x):return isinstance(x,list)
+def is_symbol(x):return isinstance(x,Symbol)
 
 def parse(tokens, program = list()):
     class TokenStream:
         def __init__(self, generator):
             self.gen = generator
             self.buffer = None
-    
+
         def next(self):
             if self.buffer is not None:
                 token = self.buffer
                 self.buffer = None
                 return token
             return next(self.gen)
-    
+
         def peek(self):
             if self.buffer is None:
                 self.buffer = next(self.gen)
             return self.buffer
-    
+
     def parse_stream(token_stream):
         token = token_stream.next()
-        
+
         #print(token)
-    
+
         if token == '(':
             lst = []
             while token_stream.peek() != ')':
                 lst.append(parse_stream(token_stream))
             _ = token_stream.next()  # ')'
-            
+
             #print(f"close list {lst}")
             return lst
-    
+
         elif token == ')':
             raise SyntaxError("Unerwartetes )")
-    
+
         elif token == "'":
             return ['quote', parse_stream(token_stream)]
-    
+
         elif token == '`':
             return ['quasiquote', parse_stream(token_stream)]
-    
+
         elif token == ',':
             return ['unquote', parse_stream(token_stream)]
-    
+
         else:
             return atom(token)
-            
+
     stream = TokenStream(tokens)
     try:
         while True:
             program.append(parse_stream(stream))
     except StopIteration:
         return program
-            
+
 class Env:
     def __init__(self, parent = None):
         self.data = {}
@@ -150,6 +154,42 @@ class Env:
     def set(self, name, value):
         self.data[name] = value
 
+    def init_env(self, debug_level=0):
+        self.debug_level = debug_level
+        self.set('nil', False)
+        self.set('t', True)
+        self.set('format', lisp_format)
+        self.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
+        self.set('print', print)
+        self.set('list', create_list)
+        self.set('cons', lambda l, a: l.append(a))
+        self.set('and', lambda a, b: a and b)
+        self.set('or', lambda a, b: a or b)
+        self.set('zip', lambda *a: list(zip(*a)))
+        self.set('null', lambda a: "t" if a==[] or a=="nil" else "nil")
+        self.set('atom?', lambda a: "t" if not is_list(a) else "nil")
+        self.set('integer?', lambda a: "t" if isinstance(a, int) else "nil")
+        self.set('number?', lambda a: "t" if isinstance(a, float) else "nil")
+        self.set('function?', lambda a: "t" if callable(a) else "nil")
+        self.set('+'   , add)
+        self.set('-'   , sub)
+        self.set('*'   , mult)
+        self.set('/'   , div)
+        self.set('>='  , greaterequal)
+        self.set('>'   , greater)
+        self.set('<='  , lessequal)
+        self.set('<'   , less)
+        self.set('=='  , equal)
+        self.set('not' , lambda x: not x)
+        self.set('car' , car)
+        self.set('cdr' , cdr)
+        self.set('print-env', lambda *args: print(str(self)))
+        self.set('map', lisp_map)
+        self.set('mapcar', lisp_mapcar)
+        self.set('apply', lisp_apply)
+        self.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
+        self.set('debug', lambda debug_level=None: self.set_debug_level(debug_level))
+        self.set('last-expr!', None)
 
     def overwrite(self, name, value):
         if name in self.data.keys():
@@ -161,7 +201,7 @@ class Env:
             return False
         #print("search in parent")
         return self.parent.overwrite(name, value)
-        
+
 
     def empty(self):
         if len(self.data) == 0:
@@ -174,19 +214,7 @@ class Env:
             ret += str(self.parent)
         return ret + str(self.data)
 
-class FunctionDef:
-    def __init__(self, closure, params, body, call_interpreter) -> None:
-        self.closure = closure
-        self.params = params
-        self.body = body
-        self.call_interpreter = call_interpreter
 
-    def __call__(self, *values):
-        new_env = Env(self.closure)
-        for name, value in zip(self.params, values):
-            new_env.set(name, value)
-        return self.call_interpreter(new_env, self.body)
-        
 def lisp_format(fmt, *args):
     try:
         return fmt.format(*args)
@@ -194,35 +222,25 @@ def lisp_format(fmt, *args):
         raise ValueError(f"format Fehler: {e}")
         def create_list(self, args):
             return list(args)
-    
+
 def greater(a, b):
-    #print(f"{a=} > {b=}")
     ret = True if a>b else None
-    #print(f"{ret=}")
     return ret
 
 def greaterequal(a, b):
-    #print(f"{a=} >= {b=}")
     ret = True if a>=b else None
-    #print(f"{ret=}")
     return ret
 
 def less(a, b):
-    #print(f"{a=} < {b=}")
     ret = True if a<b else None
-    #print(f"{ret=}")
     return ret
 
 def lessequal(a, b):
-    #print(f"{a=} <= {b=}")
     ret = True if a<=b else None
-    #print(f"{ret=}")
     return ret
 
 def equal(a, b):
-    #print(f"{a=} == {b=}")
     ret = True if a==b else None
-    #print(f"{ret=}")
     return ret
 
 def add(*args):
@@ -258,83 +276,198 @@ def div(*args):
     for arg in args:
         result /= arg
     return result
+
 def car(args):
     if not isinstance(args, list) or len(args)==0:
         raise ValueError("car expects non empty list")
     return args[0]
-    
+
 def cdr(args):
     if not isinstance(args, list) or len(args)==0:
-        raise ValueError("car expects non empty list")
+        return 'nil'
     return args[1:]
 
 def create_list(*args):
     return list(args)
-            
+
 def lisp_map(func, *args):
     if not isinstance(func, FunctionDef) and not callable(func):
         raise TypeError(f"map: can't call func {func}")
-        
+
     for nr, lst in enumerate(args):
         if not isinstance(lst, list):
             raise TypeError(f"map: element at {nr} is not a list")
     result = []
-    
+
     for items in zip(*args):
         value = func(*items)
         result.append(value)
-        
+
     return result
 
-class LispInterpreter:
+def lisp_mapcar(func, *lists):
+    # Prüfe: mindestens eine Liste
+    if len(lists) == 0:
+        raise TypeError("mapcar braucht mindestens eine Liste")
 
-    def __init__(self):
-        self.env = Env()
-        self.env.set('format', lisp_format)
-        self.env.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
-        self.env.set('print', print)
-        self.env.set('list', create_list)
-        self.env.set('+'   , add)
-        self.env.set('-'   , sub)
-        self.env.set('*'   , mult)
-        self.env.set('/'   , div)
-        self.env.set('>='  , greaterequal)
-        self.env.set('>'   , greater)
-        self.env.set('<='  , lessequal)
-        self.env.set('<'   , less)
-        self.env.set('=='  , equal)
-        self.env.set('car' , car)
-        self.env.set('cdr' , cdr)
-        self.env.set('map', lisp_map)
-        self.env.set('print-env', lambda *args: print(str(self.env)))
-        self.env.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
+    # stoppe, wenn irgendeine Liste leer ist
+    result = []
+    # Annahme: Listen werden als Python-Listen repräsentiert
+    while all(lst for lst in lists):  # leere Liste == [] falsy
+        # aktuelle Köpfe
+        heads = [lst[0] for lst in lists]
 
-        self.functionplaceholder = FunctionDef(self.env, None, None, self.run_rec)
+        val = func(*heads)
 
-        self.specialforms = {
-            'if': self.ifthenelse,
-            'define': self.define,
-            'let': self.let,
-            'lambda': self.create_lambda,
-            'defun': self.define_function,
-            'quote': self.qoute,
-            'quasiquote': self.quasiqoute,
-            'unquote': self.unqoute,
-            'eval': self.eval,
-            'begin': self.begin,
-            'set!': self.overwrite,
-            'load': self.load_and_parse_lisp_file,
-        }
-        self.functions = {
+        result.append(val)
+        # advance lists
+        lists = [lst[1:] for lst in lists]
+    return result
 
-        }
+def lisp_apply(func, *args):
+    # args: optional vorangestellte Argumente, das letzte Argument muss eine Liste sein
+    if len(args) == 0:
+        raise TypeError("apply braucht mindestens ein Argument: die Argumentliste")
+    arglist = args[-1]
+    prefix = list(args[:-1])
 
-    def run_rec(self, env:Env, expression):
-        #print(f"{expression=}")
-        
+    #print(f"{arglist=}")
+    #print(f"{prefix=}")
+
+    if not isinstance(arglist, list):
+        raise TypeError("apply: letztes Argument muss eine Liste sein")
+
+    full_args = prefix + list(arglist)
+
+    # func kann ein Python-callable (builtin) oder eine Closure sein
+    return func(*full_args)
+
+
+def cond(*args):
+    pass
+
+#(print-eval (apply + 20 30 '(1 2 3 4 5)))
+
+def print_lisp_recursive(expression):
+    if isinstance(expression, Symbol):
+        return expression
+    elif isinstance( expression, str):
+        return f'"{expression}"'
+    elif isinstance( expression, (int, float, str)):
+        return str(expression)
+    elif isinstance(expression, (tuple, list)):
+        ret = "("
+        for e in expression:
+            ret+=print_lisp_recursive(e)+" "
+        ret.rstrip()
+        ret += ")"
+        return ret
+    return "???"
+
+
+
+class FunctionDef:
+    def __init__(self, closure, params, body) -> None:
+        self.closure = closure
+        self.params = params
+        self.body = body
+
+
+    def bind_params(self, *args):
+        new_env =Env(self.closure)
+        if '&rest' in self.params:
+            idx = self.params.index('&rest')
+            before = self.params[:idx]
+            if idx+1 > len(self.params):
+                raise SyntaxError("&rest needs a following parameter name")
+            rest_name = self.params[idx+1]
+            if len(args) < len(before):
+                raise TypeError("missing arguments")
+            for name, val in zip(before, args[:len(before):]):
+                new_env.set(name,val)
+            new_env.set(rest_name, list(args[len(before):]))
+        else:
+            if len(args) != len(self.params):
+                raise TypeError(f"wrong number of arguments, expecting {len(self.params)} got {len(args)}")
+
+            for name, val in zip(self.params, args):
+                new_env.set(name, val)
+        return new_env
+
+    def __call__(self, *values):
+        new_env = self.bind_params(*values)
+        return eval_lisp(new_env, self.body)
+
+class Macro:
+    def __init__(self, proc):
+        self.proc = proc
+
+    def expand(self, *raw_args):
+        result = self.proc(*raw_args)
+        #print("Macro.expand:", result)
+        return result
+
+def is_macro(x):return isinstance(x, Macro)
+
+def macroexpand(env, ast):
+    while is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
+        head = ast[0]
+        try:
+            val = env.get(head)
+        except Exception:
+            val = None
+
+        if is_macro(val):
+            macro = val
+
+            raw_args = ast[1:]
+
+            #print(f"macroexpand {head} before: {raw_args}\n")
+
+            #print(f"macro param: {macro.proc.params} set to {raw_args}\n")
+            ast = macro.expand(*raw_args)
+            if isinstance(ast, Env):
+                raise TypeError("this is a Env")
+            #print(f"macroexpand {head}  after: {ast}\n\n")
+
+            continue
+
+        else:
+            break
+
+    #print(f"after macroexpand {ast}")
+    return ast
+
+
+
+def print_and_eval(env, *args):
+    toprint = print_lisp_recursive(*args)
+    evaluated = eval_lisp(env, *args)
+    print(f"{toprint} evaluates to {evaluated}")
+    return evaluated
+
+def eval_lisp(env:Env, expression):
+    specialforms = {
+        'if':         ifthenelse,
+        'define':     define,
+        'let':        let,
+        'lambda':     create_lambda,
+        'defun':      define_function,
+        'quote':      quote,
+        'quasiquote': quasiquote,
+        'unquote':    unquote,
+        'eval':       eval,
+        'begin':      begin,
+        'set!':       overwrite,
+        'load':       load_and_parse_lisp_file,
+        'defmacro':   defmacro,
+        'while':      while_loop,
+        'print-eval': print_and_eval,
+    }
+    try:
         if isinstance(expression, Symbol):
             return env.get(expression)
-            
+
         if isinstance(expression, str):
             return expression
 
@@ -344,274 +477,259 @@ class LispInterpreter:
         if not isinstance(expression, (list, tuple)):
             raise ValueError(f"invalid value {expression}")
 
+        expression = macroexpand(env, expression)
+
         function = expression[0]
         args = expression[1:]
 
         if isinstance(function, list):
-            function = self.run_rec(env, function)
+            function = eval_lisp(env, function)
 
-        if function in self.specialforms:
-            return self.specialforms[function](env, *args)
+        if function in specialforms:
+            return specialforms[function](env, *args)
 
 
-        values = [self.run_rec(env, arg) for arg in args]
-        #print(f"{values=}")
+        values = [eval_lisp(env, arg) for arg in args]
 
-        if isinstance(function, (int, float)):
-            return [function, *values]
-
-        if function in self.functions.keys():
-            return self.functions[function](*values)
+        if isinstance(function, str):
+            func = env.get(function)
         else:
-            if isinstance(function, str):
-                func = env.get(function)
-            else:
-                func = function
-            if isinstance(func, FunctionDef):
-                new_env = Env(func.closure)
-                for name, value in zip(func.params, values):
-                    new_env.set(name, value)
-
-                return self.run_rec(new_env, func.body)
-            elif callable(func):
-                #print(values)
-                return func(*values)
-            else:
-                raise ValueError(f"unknown function {function}")
-
-    def run(self, lisp_tree : list[Any], keep_env = False):
-        if keep_env:
-            env = self.env
+            func = function
+        if isinstance(func, FunctionDef):
+            return func(*values)
+        elif callable(func):
+            return func(*values)
         else:
-            env : Env = Env(self.env)
-        #print(f"run starts with {str(env)=}")
-        ret = None
-        for e in lisp_tree:
-            ret = self.run_rec(env, e)
-        #print(f"{str(env)=}")
-        
-        return ret
+            raise ValueError(f"unknown function {function}")
+    except ValueError as ve:
+        print(f"{ve}\n in {print_lisp_recursive(expression)}")
+    except Exception as e:
+        print(f"{e}\n in {print_lisp_recursive(expression)}")
 
-    def create_lambda(self, env, *args):
-        params, body = args
-        return FunctionDef(env, params, body, self.run_rec)
 
-    def define_function(self, env, *args):
+def run(lisp_tree : list[Any], env:Env):
+    for e in lisp_tree:
+        env.set('last-expr!', eval_lisp(env, e))
+    if env.get('last-expr!') is not None:
+        print(env.get('last-expr!'))
+
+
+
+def create_lambda(env, *args):
+    params, body = args
+    return FunctionDef(env, params, body)
+
+def define_function(env, *args):
+    try:
+        name, params, body = args
+        #print(f"try to add function {name} ({params}) {body}")
+        env.set(name, None)
+        func = FunctionDef(env, params, body)
+        if not env.overwrite(name, func):
+            raise NameError(f"expecting function {name} in environtment")
+    except NameError as ne:
+        print(f"function {name} not defined: {ne}")
+
+def while_loop(env, cond_expr, *body_exprs):
+    last_val = None
+    while(eval_lisp(env, cond_expr)):
         try:
-            name, params, body = args
-            #print(f"try to add function {name} ({params}) {body}")
-            env.set(name, self.functionplaceholder)
-            func = FunctionDef(env, params, body, self.run_rec)
-            if not env.overwrite(name, func):
-                raise NameError(f"expecting function {name} in environtment")
-        except NameError as ne:
-            print(f"function {name} not defined: {ne}")
+            for expr in body_exprs:
+                last_val = eval_lisp(env, expr)
+        except Exception as e:
+            print(e)
+    return last_val
+
+def defmacro(env, name, params, body):
+    proc = FunctionDef(env, params, body)
+    env.set(name, Macro(proc))
+
+def begin(env, *args):
+    expressions = args
+    ret = None
+    for expression in expressions:
+        ret = eval_lisp(env, expression)
+    return ret
+
+def ifthenelse(env, condition, true_branch, false_branch = None):
+    cond_result = eval_lisp(env, condition)
+    if cond_result is not None and (cond_result == "t" or cond_result == True):
+        return eval_lisp(env, true_branch)
+    elif false_branch is not None:
+        return eval_lisp(env, false_branch)
+    return "nil"
+
+def define(env: Env, *args):
+    (var, value) = args
+    env.set(var, eval_lisp(env, value))
+
+def overwrite(env, var, value):
+    return "t" if env.overwrite(var, value) else "nil"
+
+def let(env: Env, vars, *expressions):
+    env = Env(env)
+
+    for var in vars:
+        define(env, *var)
+
+    ret = None
+
+    for expression in expressions:
+        ret = eval_lisp(env, expression)
+
+    env = env.parent
+
+    return ret
 
 
-    def begin(self, env, *args):
-        _, expressions = args
-        ret = None
-        for expression in expressions:
-            ret = self.run_rec(env, expression)
-        return ret
 
-    def ifthenelse(self, env, *args):
-        condition, true_branch, false_branch = args
-        cond_result = self.run_rec(env, condition)
-        #print(f"{cond_result=}")
-        if cond_result is not None:
-            return self.run_rec(env, true_branch)
+def quote(env, args):
+    return args
+
+
+def quasiquote(env, ast, depth=1):
+    """
+    ast: AST node (atom or list)
+    env: environment used to eval unquote parts
+    depth: nesting level of quasiquote (1 = we are in quasiquote)
+    Returns: AST with unquotes evaluated (for macro expansion)
+    """
+    # atoms: just return quoted atom as-is (symbols/numbers)
+    if not is_list(ast):
+        return ast
+
+    # empty list stays empty
+    if len(ast) == 0:
+        return []
+
+    # If head is 'quasiquote', increase depth and recurse into its body
+    if is_symbol(ast[0]) and ast[0] == 'quasiquote':
+        # (quasiquote X) -> treat inner with depth+1
+        return ['quasiquote', quasiquote(env, ast[1], depth+1)]
+
+    # Handle unquote only when depth == 1 (i.e. this quasiquote level)
+    if is_symbol(ast[0]) and ast[0] == 'unquote':
+        if depth == 1:
+            # evaluate the inner expression in env and return the result (AST)
+            return eval_lisp(env, ast[1])
         else:
-            return self.run_rec(env, false_branch)
+            # inside deeper quasiquote: treat as literal unquote form
+            return ['unquote', quasiquote(env, ast[1], depth-1)]
 
-    def define(self, env: Env, *args):
-        (var, value) = args
-        env.set(var, self.run_rec(env, value))
+    # Handle unquote-splicing, only valid inside list context when depth == 1
+    if is_symbol(ast[0]) and ast[0] == 'unquote-splicing':
+        if depth == 1:
+            # evaluate to a list that will later be spliced
+            return ('__UNQUOTE_SPLICED__', eval_lisp(env, ast[1]))
+        else:
+            return ['unquote-splicing', quasiquote(env, ast[1], depth-1)]
 
-    def overwrite(self, env, var, value):
-        return "t" if env.overwrite(var, value) else "nil"
-    
+    # General list processing: iterate elements, handle splicing markers
+    result = []
+    for elem in ast:
+        q = quasiquote(env, elem, depth)
+        # If element returned a special splicing marker, splice its value into result
+        if isinstance(q, tuple) and q and q[0] == '__UNQUOTE_SPLICED__':
+            spliced = q[1]
+            if not isinstance(spliced, list):
+                raise TypeError("unquote-splicing must evaluate to a list")
+            result.extend(spliced)
+        else:
+            result.append(q)
+    return result
 
-
-    def let(self, env: Env, vars, *expressions):
-        env = Env(env)
-
-        for var in vars:
-            self.define(env, *var)
-
-        ret = None
-
-        for expression in expressions:
-            ret = self.run_rec(env, expression)
-
-        env = env.parent
-
-        return ret
-
-    def map(self, env, *args):
-        func = self.run_rec(env, args[0])
-        list_of_values = self.run_rec(env, args[1:])
-        
-        if len(list_of_values)==1:
-            return [self.run_rec(env, [func, value]) for value in values]
-        return [None]
-
-
-    def qoute(self, env, args):
+def oldquasiquote(env, *args):
+    if not isinstance(args, list):
         return args
+    values = args
+    if len(values)>0 and values[0]=="unquote":
+        return eval_lisp(env, values[1:])
+    return [quasiquote(env, val) for val in values]
 
-    
-    def quasiqoute(self, env, args):
-        if not isinstance(args, list):
-            return args
-        values = args   
-        if len(values)>0 and values[0]=="unqoute":
-            return self.run_rec(env, values[1])
-        return [self.quasiqoute(env, val) for val in values]
-        
-    def unqoute(self, env, args):
-        (result,) = self.run_rec(env, args)
-        return result
+def unquote(env, *args):
+    result = eval_lisp(env, *args)
+    return result
 
-    def load_and_parse_lisp_file(self, env, filename):
-        filepath = Path(filename).absolute()
-        if not filepath.exists():
-            return "nil"
+def load_and_parse_lisp_file(env, filename):
+    filepath = Path(filename).absolute()
+    if not filepath.exists():
+        return "nil"
 
-        parsed_lisp = parse(tokenize_file(filepath), program=list())
+    parsed_lisp = parse(tokenize_file(filepath), program=list())
 
-        self.run(parsed_lisp, keep_env = True)
-        
-        return "t"
-        
-    def eval(self, env, args):
-        value = self.run_rec(env, args)
-        return self.run_rec(env, value)
-        
+    run(parsed_lisp, env)
+
+    return "t"
+
+def eval(env, args):
+    value = eval_lisp(env, args)
+    return eval_lisp(env, value)
+
 def main() -> None:
+    debug_level = 0
+    main_env = Env()
+    main_env.init_env()
     program = Path(sys.argv[0])
     programpath = program.parent
     programname = program.name
     print(f"{programname} located in {programpath}")
-    lispfile = programpath / Path("lispfile.lisp")
-    
-    interpreter = LispInterpreter()
-    if lispfile.exists():
-        parsed_lisp = parse(tokenize_file(lispfile))
 
-        interpreter.run(parsed_lisp, keep_env=True)
-    else:
-        print(f"Can't find {lispfile} from here {os.getcwd()}")
-        exit(1)
-    
-    
-    testcases = {
-        "testcase1" : textwrap.dedent("""\
-        (my-func 1 2 ( + 1 2 )
-        """),
-        "testcase2": textwrap.dedent("""\
-        (my-func 1 2 3 (my-func 4 5 (+ 3 3)))
-        (+ 10 (* 3 6))
-        """),
-        "testcase3": textwrap.dedent("""\
-        (my-func 1 2 3 (my-func 4 5 (+ 3 3))))
-        """),
-        "testcase4": """\
-    (define a 10)
-    (define addN
-        (lambda (n)
-            (lambda (x) (+ x n)
-            )
-        )
-    )
-    (list (let ((a 2) (b 3 )) (+ 1 a b (* 2 2) (if nil (/ 2 1) (+ 3 2))) (+ a b)) 10)""",
+    lispfiles = [programpath / Path("lispfile.lisp"),
+                programpath / "macro.l"]
 
-    "testcase5": """\
-    (define a 10)
-    (defun test (m) (lambda (x) (* m x)))
-    (define addN
-        (lambda (n)
-            (lambda (x) (+ x n)
-            )
-        )
-    )
-    (define add5 (addN 5))
-    (define mul10 (test 10))
-    ((add5 a) (mul10 3))
-    (map (lambda (v) (* 3.14 v)) (10 12 14))
-    """,
-    "testcase6": """\
-    (defun fib (x)
-        (if (>= x 3)
-            (car (cdr (print
-                (
-                    x 
-                    (+ 
-                        (fib (- x 1))
-                        (fib (- x 2))
-                    )
-                )
-            )))
-            (print 1)
-        )
-    )
-    (print (map (lambda (x) (list x (fib x))) (3 4 5 6 7 8 9 10 11 12)))
-        """,
-    "testcase7": """\
-    (defun sqr (x) (x (* x x)))
-    (map sqr (4 5))
-    """,
-    "testcase8": """\
-(defun double (x) (* 2 x))
-(define lst '(1 2 3 4 5))
-(print lst " -> " (map double lst))
-((lambda (x) (* 3 x)) 3)
-    """,
-    
-    "testcase9": """(let ((b 10)( a `( + 1 2 (+ 2 1) 4)))
-        (print a)
-        (print a (car a) (cdr a))
-        (print (eval a))
-        )""",
-    "testcase10": """\
-        (define print (lambda (a) '(print a)))
-        (define a "Thomas Dilling")
-        (define b "Hallo ")
-        (define c 10)
-        (print (string-append b a " " c) )
-        (print (format "{} ist {} Jahre alt!" a 59))
-        """,
-        }
-    number_of_testcases = len(testcases)
-    while True:
-        test_case = input(f"testcase: ")
-        if test_case=="exit":
-            exit(0)
-        if test_case not in testcases:
-            if test_case.startswith("load "):
-                filepath = Path(test_case[5:].strip())
-                
-                with open(filepath)as filehandle:
-                    lisp_lines = "".join(filehandle.readlines())
-                    token_generator = tokenize(lisp_lines)
-            else:
-                lisp_lines = test_case
-                if lisp_lines.strip() == "":
-                    continue 
-                token_generator = tokenize(lisp_lines)
+    for lispfile in lispfiles:
+
+        if lispfile.exists():
+            try:
+                parsed_lisp = parse(tokenize_file(lispfile))
+
+                run(parsed_lisp, main_env)
+            except TypeError as te:
+                print(f"Error: {te}\n===============\n")
+                traceback.print_exc()
+                print(f"===============\n")
+            except NameError as ne:
+                print(f"Error: {ne}\n===============\n")
+                traceback.print_exc()
+                print(f"===============\n")
+            except ValueError as ve:
+                print(f"Error: {ve}\n===============\n")
+                traceback.print_exc()
+                print(f"===============\n")
         else:
-            lisp_lines = testcases[test_case]
-            token_generator = tokenize(lisp_lines)
+            print(f"Can't find {lispfile} from here {os.getcwd()}")
 
-            print(f"test case:\n{lisp_lines}\n-----------\n")
+
+
+    while True:
+        prompt = ""
+        if debug_level:
+            prompt = f"testcase: "
+        test_case = input(prompt)
+
+        token_generator = tokenize(test_case)
+
+        if debug_level:
+            print(f"test case:\n{test_case}\n-----------\n")
 
         try:
             parsed_lisp = parse(token_generator, program=list())
 
-            print(interpreter.run(parsed_lisp, keep_env=True))
-            print("===============")
+            run(parsed_lisp, main_env)
+            if debug_level:
+                print("===============")
         except TypeError as te:
             print(f"Error: {te}\n===============\n")
-        
+            traceback.print_exc()
+            print(f"===============\n")
+        except NameError as ne:
+            print(f"Error: {ne}\n===============\n")
+            traceback.print_exc()
+            print(f"===============\n")
+        except ValueError as ve:
+            print(f"Error: {ve}\n===============\n")
+            traceback.print_exc()
+            print(f"===============\n")
+
 if __name__ == '__main__':
     main()
