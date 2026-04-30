@@ -32,3 +32,11 @@
 (print zipped)
 
 (print (zip '(1 2 3 4) '(1 3 5 7) '(2 4 6 8)))
+
+(define l1 '(1 2 3 4))
+(define l2 '(5 6 7 8 9))
+(define l3 '(2 4 6 8 10))
+(print "(mapcar + l1 l2 l3)=" (mapcar + l1 l2 l3))
+(print "sum of mapcar of " l1 l2 l3 " is " (apply + (mapcar + l1 l2 l3)))
+(print "result of (apply + 20 30 '(1 2 3 4 5)) = " (apply + 20 30 '(1 2 3 4 5)))
+

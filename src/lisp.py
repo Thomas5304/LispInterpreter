@@ -269,10 +269,50 @@ def lisp_map(func, *args):
 
     return result
 
+def lisp_mapcar(func, *lists):
+    # Prüfe: mindestens eine Liste
+    if len(lists) == 0:
+        raise TypeError("mapcar braucht mindestens eine Liste")
+
+    # stoppe, wenn irgendeine Liste leer ist
+    result = []
+    # Annahme: Listen werden als Python-Listen repräsentiert
+    while all(lst for lst in lists):  # leere Liste == [] falsy
+        # aktuelle Köpfe
+        heads = [lst[0] for lst in lists]
+
+        val = func(*heads)
+
+        result.append(val)
+        # advance lists
+        lists = [lst[1:] for lst in lists]
+    return result
+
+def lisp_apply(func, *args):
+    # args: optional vorangestellte Argumente, das letzte Argument muss eine Liste sein
+    if len(args) == 0:
+        raise TypeError("apply braucht mindestens ein Argument: die Argumentliste")
+    arglist = args[-1]
+    prefix = list(args[:-1])
+
+    #print(f"{arglist=}")
+    #print(f"{prefix=}")
+    
+    if not isinstance(arglist, list):
+        raise TypeError("apply: letztes Argument muss eine Liste sein")
+
+    full_args = prefix + list(arglist)
+
+    # func kann ein Python-callable (builtin) oder eine Closure sein
+    return func(*full_args)
+
+
 def cond(*args):
     pass
 
-def print_lisp_recursive(expression):
+#(print-eval (apply + 20 30 '(1 2 3 4 5)))
+
+def print_lisp_recursive(*expression):
     if isinstance(expression, Symbol):
         return expression
     elif isinstance( expression, str):
@@ -378,6 +418,10 @@ class LispInterpreter:
         self.env.set('or', lambda a, b: a or b)
         self.env.set('zip', lambda *a: list(zip(*a)))
         self.env.set('null', lambda a: "t" if a==[] or a=="nil" else "nil")
+        self.env.set('atom?', lambda a: "t" if not is_list(a) else "nil")
+        self.env.set('integer?', lambda a: "t" if isinstance(a, int) else "nil")
+        self.env.set('number?', lambda a: "t" if isinstance(a, float) else "nil")
+        self.env.set('function?', lambda a: "t" if callable(a) else "nil")
         self.env.set('+'   , add)
         self.env.set('-'   , sub)
         self.env.set('*'   , mult)
@@ -390,8 +434,10 @@ class LispInterpreter:
         self.env.set('not' , lambda x: not x)
         self.env.set('car' , car)
         self.env.set('cdr' , cdr)
-        self.env.set('map', lisp_map)
         self.env.set('print-env', lambda *args: print(str(self.env)))
+        self.env.set('map', lisp_map)
+        self.env.set('mapcar', lisp_mapcar)
+        self.env.set('apply', lisp_apply)
         self.env.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
         self.env.set('debug', lambda debug_level=None: self.set_debug_level(debug_level))
         #self.env.set('set!', lambda var,value: "t" if self.overwrite(var, value) else "nil")
@@ -412,10 +458,17 @@ class LispInterpreter:
             'load': self.load_and_parse_lisp_file,
             'defmacro': self.defmacro,
             'while': self.while_loop,
+            'print-eval': self.print_and_eval,
         }
         self.functions = {
 
         }
+
+    def print_and_eval(self, env, *args):
+        toprint = print_lisp_recursive(*args)
+        evaluated = "nil"#self.run_rec(env, *args)
+        print(f"{toprint} evaluates to {evaluated}")
+        return evaluated
 
     def set_debug_level(self, debug_level = None):
         if debug_level is not None:
@@ -557,13 +610,6 @@ class LispInterpreter:
 
         return ret
 
-    def map(self, env, *args):
-        func = self.run_rec(env, args[0])
-        list_of_values = self.run_rec(env, args[1:])
-
-        if len(list_of_values)==1:
-            return [self.run_rec(env, [func, value]) for value in values]
-        return [None]
 
 
     def quote(self, env, args):
