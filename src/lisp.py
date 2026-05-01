@@ -481,6 +481,7 @@ def eval_lisp(env:Env, expression):
         'defmacro':   defmacro,
         'while':      while_loop,
         'print-eval': print_and_eval,
+        'cond':       eval_cond,
     }
     try:
         if isinstance(expression, Symbol):
@@ -531,7 +532,20 @@ def run(lisp_tree : list[Any], env:Env):
     if env.get('last-expr!') is not None:
         print(env.get('last-expr!'))
 
+def eval_cond(env, *clauses):
+    for clause in clauses:
+        test = clause[0]
+        body = clause[1:]
 
+        if test == "else" or eval_lisp(env, test):
+            result = None
+
+            for expr in body:
+                result = eval_lisp(env, expr)
+
+            return result
+
+    return None
 
 def create_lambda(env, *args):
     params, body = args
