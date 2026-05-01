@@ -4,12 +4,13 @@ from re import L
 from tokenize import Token
 import textwrap
 from enum import Enum, auto
-from typing import Callable, Any, Iterable, Generator
+from typing import Callable, Any, Iterable, Generator, TypeVar
 from dataclasses import dataclass, field
 import os
 import sys
 from pathlib import Path
 import traceback
+
 
 def oldtokenize(lisp_expression:str)->Generator[str, None, None]:
     s = lisp_expression.replace("(", " ( ").replace(")"," ) ").replace("'", " ' ")
@@ -188,7 +189,7 @@ class Env:
         self.set('mapcar', lisp_mapcar)
         self.set('apply', lisp_apply)
         self.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
-        self.set('debug', lambda debug_level=None: self.set_debug_level(debug_level))
+        #self.set('debug', lambda debug_level=None: set_debug_level(debug_level))
         self.set('last-expr!', None)
 
     def overwrite(self, name, value):
@@ -220,8 +221,9 @@ def lisp_format(fmt, *args):
         return fmt.format(*args)
     except Exception as e:
         raise ValueError(f"format Fehler: {e}")
-        def create_list(self, args):
-            return list(args)
+
+def create_list(self, args):
+     return list(args)
 
 def greater(a, b):
     ret = True if a>b else None
@@ -413,12 +415,12 @@ def macroexpand(env, ast):
     while is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
         head = ast[0]
         try:
-            val = env.get(head)
+            val:Symbol|list|Macro|FunctionDef|None = env.get(head)
         except Exception:
-            val = None
+            val:Symbol|list|Macro|FunctionDef|None = None
 
         if is_macro(val):
-            macro = val
+            macro : Macro = val
 
             raw_args = ast[1:]
 
@@ -520,8 +522,8 @@ def create_lambda(env, *args):
     return FunctionDef(env, params, body)
 
 def define_function(env, *args):
+    name, params, body = args
     try:
-        name, params, body = args
         #print(f"try to add function {name} ({params}) {body}")
         env.set(name, None)
         func = FunctionDef(env, params, body)
@@ -577,7 +579,8 @@ def let(env: Env, vars, *expressions):
     for expression in expressions:
         ret = eval_lisp(env, expression)
 
-    env = env.parent
+    # The new env is deleted automatically
+    # env = env.parent
 
     return ret
 
