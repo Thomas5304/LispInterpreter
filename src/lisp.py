@@ -23,6 +23,11 @@ def tokenize(s: str):
     while i < len(s):
         c = s[i]
 
+        if c == ';':
+            while i < len(s) and s[i] != '\n':
+                i+=1
+            continue
+
         # whitespace
         if c.isspace():
             i += 1
