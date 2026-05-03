@@ -225,13 +225,6 @@ class Env:
             ret += str(self.parent)
         return ret + str(self.data)
 
-
-    def __call__(self, *values):
-        new_env = Env(self.closure)
-        for name, value in zip(self.params, values):
-            new_env.set(name, value)
-        return self.call_interpreter(new_env, self.body)
-
 def lisp_format(fmt, *args):
     try:
         return fmt.format(*args)
@@ -268,6 +261,7 @@ def add(*args):
         return sum(args)
     except TypeError as te:
         print(f"{te} {args}")
+        traceback.print_exc()
 
 def mult(*args):
     result = 1
@@ -382,35 +376,98 @@ def print_lisp_recursive(expression):
         return ret
     return "???"
 
-
+def is_keyword(kw):
+    return isinstance(kw, str) and kw.startswith(':')
 
 class FunctionDef:
-    def __init__(self, closure, params, body) -> None:
+    def __init__(self, closure, all_params, body) -> None:
+        if '&rest' in all_params:
+            idx = all_params.index('&rest')
+            if idx>len(all_params)-2:
+                SyntaxError(f"function with &rest is missing name for rest parameter")
+            self.rest_name = all_params[idx+1]
+            all_params = all_params[:-2]
+        else:
+            self.rest_name = None
+
+        if '&keys' in all_params:
+            idx = all_params.index('&keys')
+            self.key_params = all_params[idx+1:]
+            self.params = all_params[:idx]
+            self.param_mode = "positional"
+        else:
+            self.params = all_params
+            self.key_params = []
+            self.param_mode = "keys"
+        self.optional = []
+
         self.closure = closure
-        self.params = params
         self.body = body
 
-
     def bind_params(self, *args):
-        new_env =Env(self.closure)
-        if '&rest' in self.params:
-            idx = self.params.index('&rest')
-            before = self.params[:idx]
-            if idx+1 > len(self.params):
-                raise SyntaxError("&rest needs a following parameter name")
-            rest_name = self.params[idx+1]
-            if len(args) < len(before):
-                raise TypeError("missing arguments")
-            for name, val in zip(before, args[:len(before):]):
-                new_env.set(name,val)
-            new_env.set(rest_name, list(args[len(before):]))
-        else:
-            if len(args) != len(self.params):
-                raise TypeError(f"wrong number of arguments, expecting {len(self.params)} got {len(args)}")
-
-            for name, val in zip(self.params, args):
-                new_env.set(name, val)
-        return new_env
+        env = Env(self.closure)
+        i = 0
+        arg_i = 0
+    
+        # ---------------------------
+        # 1. Positional parameters
+        # ---------------------------
+        while i < len(self.params):
+            if arg_i >= len(args):
+                raise Exception("Missing positional argument")
+    
+            env.set(self.params[i], args[arg_i])
+            i += 1
+            arg_i += 1
+    
+        # ---------------------------
+        # 2. Optional parameters
+        # ---------------------------
+        j = 0
+        while j < len(self.optional):
+            name, default = self.optional[j]
+    
+            if arg_i < len(args) and not is_keyword(args[arg_i]):
+                env.set(name, args[arg_i])
+                arg_i += 1
+            else:
+                env.set(name, default)
+    
+            j += 1
+    
+        # ---------------------------
+        # 3. Keyword arguments
+        # ---------------------------
+        keywords = {}
+    
+        while arg_i < len(args):
+            if is_keyword(args[arg_i]):
+                key = args[arg_i].lstrip(":")
+                arg_i += 1
+                
+                if arg_i >= len(args):
+                    raise Exception("Keyword without value")
+    
+                value = args[arg_i]
+                arg_i += 1
+    
+                keywords[key] = value
+            else:
+                break  # no more keywords
+    
+        # assign keyword params
+        for k,value in keywords.items():
+                env.set(k, value)
+    
+        # ---------------------------
+        # 4. Rest arguments
+        # ---------------------------
+        if self.rest_name:
+            env.set(self.rest_name, args[arg_i:])
+        elif arg_i < len(args):
+            raise Exception("Too many arguments")
+    
+        return env
 
     def __call__(self, *values):
         new_env = self.bind_params(*values)
@@ -482,9 +539,12 @@ def eval_lisp(env:Env, expression):
         'while':      while_loop,
         'print-eval': print_and_eval,
         'cond':       eval_cond,
+        'do-list':    eval_dolist,
     }
     try:
         if isinstance(expression, Symbol):
+            if is_keyword(expression):
+                return expression
             return env.get(expression)
 
         if isinstance(expression, str):
@@ -522,8 +582,10 @@ def eval_lisp(env:Env, expression):
             raise ValueError(f"unknown function {function}")
     except ValueError as ve:
         print(f"{ve}\n in {print_lisp_recursive(expression)}")
+        traceback.print_exc()
     except Exception as e:
         print(f"{e}\n in {print_lisp_recursive(expression)}")
+        traceback.print_exc()
 
 
 def run(lisp_tree : list[Any], env:Env):
@@ -531,6 +593,24 @@ def run(lisp_tree : list[Any], env:Env):
         env.set('last-expr!', eval_lisp(env, e))
     if env.get('last-expr!') is not None:
         print(env.get('last-expr!'))
+
+def eval_dolist(env, spec, *body):
+    var_name = spec[0]
+    list_expr = spec[1]
+
+    values = eval_lisp(env, list_expr)
+
+    result = None
+
+    for value in values:
+
+        local_env = Env(parent=env)
+        local_env.set(var_name, value)
+
+        for form in body:
+            result = eval_lisp(local_env, form)
+
+    return result
 
 def eval_cond(env, *clauses):
     for clause in clauses:
@@ -561,6 +641,7 @@ def define_function(env, *args):
             raise NameError(f"expecting function {name} in environtment")
     except NameError as ne:
         print(f"function {name} not defined: {ne}")
+        traceback.print_exc()
 
 def while_loop(env, cond_expr, *body_exprs):
     last_val = None
@@ -570,6 +651,7 @@ def while_loop(env, cond_expr, *body_exprs):
                 last_val = eval_lisp(env, expr)
         except Exception as e:
             print(e)
+            traceback.print_exc()
     return last_val
 
 def defmacro(env, name, params, body):
