@@ -39,6 +39,22 @@ def tokenize(s: str):
             i += 1
             continue
 
+        # unquote /unquote-splice
+        if c in ",":
+            if s[i+1] =='@':
+                c+='@'
+                i+=1
+            yield c
+            i += 1
+            continue
+        # quote / function-quote
+        if c in "#":
+            if s[i+1] =="'":
+                c+="'"
+                i+=1
+            yield c
+            i += 1
+            continue
         # quote / quasiquote / unquote
         if c in "'`,":
             yield c
@@ -134,6 +150,12 @@ def parse(tokens, program = list()):
         elif token == ',':
             return ['unquote', parse_stream(token_stream)]
 
+        elif token == ',@':
+            return ['unquote-splicing', parse_stream(token_stream)]
+
+        elif token == "#'":
+            return ['function', parse_stream(token_stream)]
+
         else:
             return atom(token)
 
@@ -173,7 +195,8 @@ class Env:
         self.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
         self.set('print', print)
         self.set('list', create_list)
-        self.set('cons', lambda l, a: l.append(a))
+        self.set('cons', eval_append)
+        self.set('append', eval_append)
         self.set('and', lambda a, b: a and b)
         self.set('or', lambda a, b: a or b)
         self.set('zip', lambda *a: list(zip(*a)))
@@ -199,8 +222,11 @@ class Env:
         self.set('mapcar', lisp_mapcar)
         self.set('apply', lisp_apply)
         self.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
+        self.set('function', lambda f: f)
         #self.set('debug', lambda debug_level=None: set_debug_level(debug_level))
         self.set('last-expr!', None)
+        #self.set('symbol-name', symbol_name)
+        self.set('intern', eval_intern)
 
     def overwrite(self, name, value):
         if name in self.data.keys():
@@ -302,6 +328,14 @@ def cdr(args):
 def create_list(*args):
     return list(args)
 
+def eval_append(lst, *args):
+    for arg in args:
+        if isinstance(arg, list):
+            lst.extend(arg)
+        else:
+            lst.append(arg)
+    return lst
+
 def lisp_map(func, *args):
     if not isinstance(func, FunctionDef) and not callable(func):
         raise TypeError(f"map: can't call func {func}")
@@ -358,6 +392,16 @@ def lisp_apply(func, *args):
 def cond(*args):
     pass
 
+def symbol_name(env, symb):
+    if isinstance(symb, Symbol):
+        return str(symb)
+    return symb
+
+def eval_intern(name):
+    if not isinstance(name, str):
+        raise TypeError(f"{name} is not a string")
+    return Symbol(name)
+
 #(print-eval (apply + 20 30 '(1 2 3 4 5)))
 
 def print_lisp_recursive(expression):
@@ -390,8 +434,8 @@ class FunctionDef:
         else:
             self.rest_name = None
 
-        if '&keys' in all_params:
-            idx = all_params.index('&keys')
+        if '&key' in all_params:
+            idx = all_params.index('&key')
             self.key_params = all_params[idx+1:]
             self.params = all_params[:idx]
             self.param_mode = "positional"
@@ -408,57 +452,57 @@ class FunctionDef:
         env = Env(self.closure)
         i = 0
         arg_i = 0
-    
+
         # ---------------------------
         # 1. Positional parameters
         # ---------------------------
         while i < len(self.params):
             if arg_i >= len(args):
                 raise Exception("Missing positional argument")
-    
+
             env.set(self.params[i], args[arg_i])
             i += 1
             arg_i += 1
-    
+
         # ---------------------------
         # 2. Optional parameters
         # ---------------------------
         j = 0
         while j < len(self.optional):
             name, default = self.optional[j]
-    
+
             if arg_i < len(args) and not is_keyword(args[arg_i]):
                 env.set(name, args[arg_i])
                 arg_i += 1
             else:
                 env.set(name, default)
-    
+
             j += 1
-    
+
         # ---------------------------
         # 3. Keyword arguments
         # ---------------------------
         keywords = {}
-    
+
         while arg_i < len(args):
             if is_keyword(args[arg_i]):
                 key = args[arg_i].lstrip(":")
                 arg_i += 1
-                
+
                 if arg_i >= len(args):
                     raise Exception("Keyword without value")
-    
+
                 value = args[arg_i]
                 arg_i += 1
-    
+
                 keywords[key] = value
             else:
                 break  # no more keywords
-    
+
         # assign keyword params
         for k,value in keywords.items():
                 env.set(k, value)
-    
+
         # ---------------------------
         # 4. Rest arguments
         # ---------------------------
@@ -466,7 +510,7 @@ class FunctionDef:
             env.set(self.rest_name, args[arg_i:])
         elif arg_i < len(args):
             raise Exception("Too many arguments")
-    
+
         return env
 
     def __call__(self, *values):
@@ -529,7 +573,7 @@ def eval_lisp(env:Env, expression):
         'lambda':     create_lambda,
         'defun':      define_function,
         'quote':      quote,
-        'quasiquote': quasiquote,
+        'quasiquote': eval_quasiquote,
         'unquote':    unquote,
         'eval':       eval,
         'begin':      begin,
@@ -540,6 +584,7 @@ def eval_lisp(env:Env, expression):
         'print-eval': print_and_eval,
         'cond':       eval_cond,
         'do-list':    eval_dolist,
+        'symbol-name': symbol_name,
     }
     try:
         if isinstance(expression, Symbol):
@@ -631,8 +676,7 @@ def create_lambda(env, *args):
     params, body = args
     return FunctionDef(env, params, body)
 
-def define_function(env, *args):
-    name, params, body = args
+def define_function(env, name, params, body):
     try:
         #print(f"try to add function {name} ({params}) {body}")
         env.set(name, None)
@@ -701,14 +745,68 @@ def let(env: Env, vars, *expressions):
 def quote(env, args):
     return args
 
+def eval_quasiquote(env, expr):
 
-def quasiquote(env, ast, depth=1):
+    # atom
+    if not isinstance(expr, list):
+        return expr
+
+    result = []
+
+    for item in expr:
+
+        # --------------------
+        # ,x
+        # --------------------
+
+        if (
+            isinstance(item, list)
+            and len(item) > 0
+            and item[0] == "unquote"
+        ):
+
+            value = eval_lisp(env, item[1])
+            result.append(value)
+
+        # --------------------
+        # ,@x
+        # --------------------
+
+        elif (
+            isinstance(item, list)
+            and len(item) > 0
+            and item[0] == "unquote-splicing"
+        ):
+
+            values = eval_lisp(env, item[1])
+
+            if not isinstance(values, list):
+                raise Exception(
+                    "unquote-splicing requires list"
+                )
+
+            result.extend(values)
+
+        # --------------------
+        # normal recursion
+        # --------------------
+
+        else:
+            result.append(
+                eval_quasiquote(env, item)
+            )
+
+    return result
+
+    
+def quasiquote(env, ast, depth=0):
     """
     ast: AST node (atom or list)
     env: environment used to eval unquote parts
     depth: nesting level of quasiquote (1 = we are in quasiquote)
     Returns: AST with unquotes evaluated (for macro expansion)
     """
+    print(f"quasiquote {print_lisp_recursive(ast)}, depth:{depth}")
     # atoms: just return quoted atom as-is (symbols/numbers)
     if not is_list(ast):
         return ast
@@ -744,6 +842,7 @@ def quasiquote(env, ast, depth=1):
     for elem in ast:
         q = quasiquote(env, elem, depth)
         # If element returned a special splicing marker, splice its value into result
+        print(f"for q {print_lisp_recursive(q)}")
         if isinstance(q, tuple) and q and q[0] == '__UNQUOTE_SPLICED__':
             spliced = q[1]
             if not isinstance(spliced, list):
@@ -752,14 +851,6 @@ def quasiquote(env, ast, depth=1):
         else:
             result.append(q)
     return result
-
-def oldquasiquote(env, *args):
-    if not isinstance(args, list):
-        return args
-    values = args
-    if len(values)>0 and values[0]=="unquote":
-        return eval_lisp(env, values[1:])
-    return [quasiquote(env, val) for val in values]
 
 def unquote(env, *args):
     result = eval_lisp(env, *args)
