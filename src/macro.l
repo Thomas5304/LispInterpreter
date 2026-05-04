@@ -2,14 +2,12 @@
 (define lst '(-1 2 3 8 9 20))
 
 (defun chksqr (stple)
-    (let ((len length(stple)))
+    (let ((len (length stple)))
         (defun chksqr-col (stple len)
-            (if (!= (length(car(stpl))) len)
-                nil
-                (if (chksqr-col (cdr stpl) len)
-                    t
-                    nil
-                )
+            (cond
+                ((null stple) (print stple) t)
+                ((!= (length (car stple)) len) nil)
+                (else (chksqr-col (cdr stple) len))
             )
         )
         (chksqr-col stple len)
@@ -49,12 +47,14 @@
 (do-list (el lst) (print el))
 
 (define chessboard '((0 1) (1 0)))
+(define error1 '((0 1) (1 0 1)))
 
 
 
 (print "Layer definition")
 
-(print (chksqr chessboard))
+(print-eval (chksqr chessboard))
+(print-eval (chksqr error1))
 
 (layer-definition (stipple chessboard))
 

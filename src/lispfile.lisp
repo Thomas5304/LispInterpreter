@@ -2,7 +2,7 @@
 (defun concatenate (&rest args) (+ args))
 (defun length (lst)
     (if
-        (null? lst)
+        (null lst)
             0
             (length (cdr lst))
         )
