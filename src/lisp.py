@@ -74,6 +74,7 @@ def tokenize(s: str):
                 i += 1
 
             i += 1  # schließendes "
+            value = value.replace("\\n","\n").replace("\\t", "\t")
             yield ('STRING', value)
             continue
 
@@ -215,7 +216,7 @@ class Env:
         self.set('<'   , less)
         self.set('=='  , equal)
         self.set('!=', lambda a, b: not equal(a, b))
-        self.set('not' , lambda x: not x)
+        self.set('not' , lambda x:  not x )
         self.set('car' , car)
         self.set('cdr' , cdr)
         self.set('print-env', lambda *args: print(str(self)))
@@ -389,9 +390,6 @@ def lisp_apply(func, *args):
     # func kann ein Python-callable (builtin) oder eine Closure sein
     return func(*full_args)
 
-
-def cond(*args):
-    pass
 
 def symbol_name(env, symb):
     if isinstance(symb, Symbol):

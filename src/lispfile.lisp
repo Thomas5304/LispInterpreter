@@ -4,6 +4,6 @@
     (if
         (null lst)
             0
-            (length (cdr lst))
+            (+ (length (cdr lst)) 1)
         )
     )

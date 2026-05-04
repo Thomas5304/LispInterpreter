@@ -3,19 +3,52 @@
 
 (defun chksqr (stple)
     (let ((len (length stple)))
-        (defun chksqr-col (stple len)
-            (cond
-                ((null stple) (print stple) t)
-                ((!= (length (car stple)) len) nil)
-                (else (chksqr-col (cdr stple) len))
+        (defun chksqr-col (list_of_list len)
+;            (cond
+;                ((null list_of_list)  t)
+;                ((!= (length (car list_of_list)) len) nil)
+;                (else (chksqr-col (cdr list_of_list) len))
+;            )
+            (if (null list_of_list) t
+                (begin
+                    (define actlen (length (car list_of_list)))
+                    (and
+                        (== actlen len)
+                        (chksqr-col (cdr list_of_list) len)
+                    )
+                )
             )
         )
         (chksqr-col stple len)
     )
 )
 
-(defun register-layer (&key stipple) (print-eval stipple)
+(defun register-layer (&key stipple color) 
+    (let ((len (length stipple)))
+        (defun print-row (row)
+            (if (null row)
+                ""
+                (+ (if (== (car row) 0)
+                        " "
+                        "X"
+                    )
+                    (print-row (cdr row))
+                )
+            )
+        )
+        (defun print-rows (rows)
+            (if (null rows)
+                ""
+                (+  (print-row (car rows)) "\n"
+                    (print-rows (cdr rows))
+                )
+            )
+        )
+        (print (print-eval stipple))
+        (print color)
+    )
 )
+            
 
 (defmacro layer-definition (&rest clauses)
 
@@ -46,7 +79,14 @@
 
 (do-list (el lst) (print el))
 
-(define chessboard '((0 1) (1 0)))
+(print-eval (null '(1 2)))
+(print-eval (null '()))
+
+(define chessboard '((0 0 1 1) (1 1 0 0)))
+(define dash '((1 0 0 0)
+               (0 1 0 0)
+               (0 0 1 0)
+               (0 0 0 1)))
 (define error1 '((0 1) (1 0 1)))
 
 
@@ -56,9 +96,9 @@
 (print-eval (chksqr chessboard))
 (print-eval (chksqr error1))
 
-(layer-definition (stipple chessboard))
+(layer-definition (stipple chessboard dash) (color 5 20 40))
 
-
+(print "\n\nPerson DSL test case\n")
 (defun define-person (&key name vorname) (print (format "Vorname: {} Name: {}" vorname name)))
 
 (defmacro person (&rest clauses)
@@ -79,7 +119,7 @@
     )))
 )
 
-(person (name "Dilling") (vorname "Thomas"))
+(person (name "Dilling") (vorname '("Thomas" "Heinrich")))
 
 (apply append '('(test tom) '(case bla)))
 
