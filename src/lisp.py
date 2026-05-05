@@ -12,13 +12,6 @@ from pathlib import Path
 import traceback
 
 
-def oldtokenize(lisp_expression:str)->Generator[str, None, None]:
-    s = lisp_expression.replace("(", " ( ").replace(")"," ) ").replace("'", " ' ")
-    s = s.replace("`", " ` ").replace("'", " ' ")
-
-    for token in s.split():
-        yield token
-
 def tokenize(s: str):
     i = 0
     while i < len(s):
