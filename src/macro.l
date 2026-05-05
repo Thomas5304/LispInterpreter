@@ -23,7 +23,7 @@
     )
 )
 
-(defun register-layer (&key stipple color) 
+(defun register-layer (&key stipple (color 0)) 
     (let ((len (length stipple)))
         (defun print-row (row)
             (if (null row)
@@ -51,28 +51,25 @@
             
 
 (defmacro layer-definition (&rest clauses)
-
   `(register-layer
-      ,@(apply append
-            (mapcar (lambda (clause)
-
-                (let ((key (car clause))
-                    (value (cadr clause)))
-                    (if (== key "color")
-                        (list (intern (format "set-{}" key)) ,value)
-                        (list (intern
-                            (+ ":" key)
-                            )
-                            ,value
-                        )
-                    )
-                )
-            )
-
-          clauses)
-        )
+    ,@(apply append (mapcar
+                     (lambda (clause)
+                       
+                       (let ((key (car clause))
+                             (value (cadr clause)))
+                         
+                         (list (intern
+                                (+ ":" key)
+                                )
+                               ,value
+                               )
+                         )
+                       )
+             
+             clauses)
+                     )
     )
-)
+  )
 
 (defun plus2 (x) (+ x 2))
 (defun multadd2 (&key m a) (* m (+ a 2)))
@@ -95,32 +92,36 @@
 
 (print "Layer definition")
 
-(print-eval (chksqr chessboard))
 (print-eval (chksqr error1))
+(print-eval (chksqr dash))
+(print-eval (chksqr chessboard))
 
-(layer-definition (stipple chessboard dash) (color 5 20 40))
+(layer-definition (stipple chessboard))
 
 (print "\n\nPerson DSL test case\n")
-(defun define-person (&key name vorname)
-(print (format "Vorname: {} Name: {} Farbe: {}" vorname name farbe)))
+(defun define-person (&key name vorname )
+(print (format "Vorname: {} Name: {} Farbe: {}" vorname name 0)))
 
 (defmacro person (&rest clauses)
-    `(define-person ,@(apply append (mapcar
-        (lambda (clause)
-
-            (let ((key (car clause))
-                (value (cadr clause)))
-
-               (list (intern
-                    (+ ":" key)
-                    )
-                    ,value
-                )
-            )
-        )
-        clauses
-    )))
-)
+  `(define-person
+     ,@(apply append (mapcar
+                      (lambda (clause)
+                        
+                        (let ((key (car clause))
+                              (value (cadr clause)))
+                          
+                          (list (intern
+                                 (+ ":" key)
+                                 )
+                                ,value
+                                )
+                          )
+                        )
+              clauses)
+                      )
+              
+     )
+  )
 
 (person (name "Dilling") (vorname '("Thomas" "Heinrich")))
 

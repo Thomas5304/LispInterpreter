@@ -1,3 +1,4 @@
+#!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
 from cmath import isinf
 from re import L
 from tokenize import Token
@@ -424,6 +425,7 @@ def is_keyword(kw):
 
 class FunctionDef:
     def __init__(self, closure, all_params, body) -> None:
+        self.key_params = {}
         if '&rest' in all_params:
             idx = all_params.index('&rest')
             if idx>len(all_params)-2:
@@ -435,13 +437,18 @@ class FunctionDef:
 
         if '&key' in all_params:
             idx = all_params.index('&key')
-            self.key_params = all_params[idx+1:]
+
+            for kv in all_params[idx+1:]:
+                if isinstance(kv, (tuple, list)):
+                    k, v = kv
+                    self.key_params[k] = v
+                else:
+                    self.key_params[kv] = None
             self.params = all_params[:idx]
-            self.param_mode = "positional"
+            self.param_mode = "keys"
         else:
             self.params = all_params
-            self.key_params = []
-            self.param_mode = "keys"
+            self.param_mode = "positional"
         self.optional = []
 
         self.closure = closure
@@ -482,6 +489,7 @@ class FunctionDef:
         # 3. Keyword arguments
         # ---------------------------
         keywords = {}
+        missing_keywords = set(k for k in self.key_params)
 
         while arg_i < len(args):
             if is_keyword(args[arg_i]):
@@ -494,9 +502,19 @@ class FunctionDef:
                 value = args[arg_i]
                 arg_i += 1
 
+                missing_keywords.discard(key)
+
                 keywords[key] = value
             else:
                 break  # no more keywords
+
+        # ---------------------------
+        # 3.1. Perhaps some keyword args are missing
+        # ---------------------------
+        for key in missing_keywords:
+            #print(f"missing keyword: {key} set to default {self.key_params[key]}")
+            keywords[key] = self.key_params[key]
+
 
         # assign keyword params
         for k,value in keywords.items():
