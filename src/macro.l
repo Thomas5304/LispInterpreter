@@ -58,11 +58,13 @@
 
                 (let ((key (car clause))
                     (value (cadr clause)))
-
-                    (list (intern
-                        (+ ":" key)
+                    (if (== key "color")
+                        (list (intern (format "set-{}" key)) ,value)
+                        (list (intern
+                            (+ ":" key)
+                            )
+                            ,value
                         )
-                        ,value
                     )
                 )
             )
@@ -99,7 +101,8 @@
 (layer-definition (stipple chessboard dash) (color 5 20 40))
 
 (print "\n\nPerson DSL test case\n")
-(defun define-person (&key name vorname) (print (format "Vorname: {} Name: {}" vorname name)))
+(defun define-person (&key name vorname)
+(print (format "Vorname: {} Name: {} Farbe: {}" vorname name farbe)))
 
 (defmacro person (&rest clauses)
     `(define-person ,@(apply append (mapcar
