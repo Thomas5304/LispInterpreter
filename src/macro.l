@@ -22,7 +22,7 @@
   (list r g b)
   )
 
-(defun register-layer (&key stipple (color (0 0 0))) 
+(defun register-layer (&key stipple (color (0 0 0)))
     (let ((len (length stipple)))
         (defun print-row (row)
             (if (null row)
@@ -52,13 +52,13 @@
         (print "")
     )
 )
-            
+
 
 (defmacro layer-definition (&rest clauses)
   `(register-layer
     ,@(apply append (mapcar
                      (lambda (clause)
-                       
+
                        (let ((key (car clause))
                              (value (cadr clause)))
                          (cond
@@ -78,7 +78,7 @@
                                )
                            )
                          )
-             
+
              clauses)
                        )
                      )
@@ -120,10 +120,10 @@
   `(define-person
      ,@(apply append (mapcar
                       (lambda (clause)
-                        
+
                         (let ((key (car clause))
                               (value (cadr clause)))
-                          
+
                           (list (intern
                                  (+ ":" key)
                                  )
@@ -133,7 +133,7 @@
                         )
               clauses)
                       )
-              
+
      )
   )
 
@@ -170,8 +170,11 @@
                        )
                     clauses)
           )
-  
+
   )
+;(defmacro drDefineStipple (&rest clause)
+;    `(begin (print "ignore drDefineStipple"))
+;)
 
 (drDefineStipple
 ;( DisplayName   StippleName  Bitmap     )
