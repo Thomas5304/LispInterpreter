@@ -1037,7 +1037,7 @@ def main() -> None:
         else:
             prompt = "....> "
 
-        line = input(prompt) + "\n"
+        line = input(prompt)
         buffer += line
 
         while True:
@@ -1046,19 +1046,16 @@ def main() -> None:
                 break
             expr_text = buffer[:end_idx].strip()
             buffer = buffer[end_idx:]
-            print("Got complete form:", expr_text)
-            
+            #print(f"buffer '{buffer}'")
+           
             if not expr_text:
                 continue
             
             try:
-    	        token_generator = tokenize(expr_text)
-                
+                token_generator = tokenize(expr_text)
                 parsed_lisp = parse(token_generator, program=list())
-    	        
-    	        run(parsed_lisp, main_env)
-    	        
-    	        print("===============")
+                run(parsed_lisp, main_env)
+                print("===============")
             except TypeError as te:
                 print(f"Error: {te}\n===============\n")
                 if debug_level:
