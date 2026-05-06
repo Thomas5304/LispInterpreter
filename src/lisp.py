@@ -12,6 +12,7 @@ from pathlib import Path
 import traceback
 import argparse
 
+from displayDRF import printStipple
 
 def tokenize(s: str)->Generator[str, None, None]:
     i = 0
@@ -414,8 +415,8 @@ def print_lisp_recursive(expression):
 def is_keyword(kw):
     return isinstance(kw, str) and kw.startswith(':')
 
-class FunctionDef:
-    def __init__(self, closure, all_params, body) -> None:
+class FunctionBase:
+    def __init__(self, closure, all_params) -> None:
         self.key_params = {}
         if '&rest' in all_params:
             idx = all_params.index('&rest')
@@ -443,7 +444,6 @@ class FunctionDef:
         self.optional = []
 
         self.closure = closure
-        self.body = body
 
     def bind_params(self, *args):
         env = Env(self.closure)
@@ -525,6 +525,58 @@ class FunctionDef:
         new_env = self.bind_params(*values)
         return eval_lisp(new_env, self.body)
 
+class FunctionDef(FunctionBase):
+    def __init__(self, closure, all_params, body) -> None:
+        super().__init__(closure, all_params)
+        self.body = body
+
+    def __call__(self, *values):
+        new_env = self.bind_params(*values)
+        return eval_lisp(new_env, self.body)
+
+# Hilfsfunktionen zur Konversion (falls nötig)
+def to_python(lisp_val):
+    # einfache Identität; erweitere bei Bedarf (z.B. Symbol -> str, List -> tuple etc.)
+    return lisp_val
+
+def from_python(py_val):
+    # einfache Identität; passe an, falls du spezielle Lisp-Typen brauchst
+    return py_val
+
+# Repräsentation für ein Lisp-Funktionsobjekt, das eine Python-Funktion aufruft
+class PythonBridgeFunction(FunctionBase):
+    def __init__(self, env, all_params, py_func):
+        super().__init__(env, all_params)
+        self.py_func = py_func
+
+    def arity_ok(self, n):
+        return n == len(self.params)
+
+    # aufruf von Eval: args sind bereits evaluierte Lisp-Werte
+    def __call__(self, *values):
+        if not self.arity_ok(len(values)):
+            raise TypeError(f"Expected {len(self.param_names)} args, got {len(values)}")
+        py_args = [to_python(a) for a in values]
+        result = self.py_func(*py_args)
+        return from_python(result)
+
+# Handler für die special form
+def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
+    print(f"defun_python")
+    # py_name_sym kann ein Symbol sein; hier nehmen wir an, es ist der Name als string
+    py_name = str(py_name_sym) if is_symbol else py_name_sym
+
+    # Namespace, in dem wir python-Funktionen suchen (default: globals())
+    ns = py_namespace if py_namespace is not None else globals()
+
+    py_func = ns.get(py_name)
+    if py_func is None:
+        raise NameError(f"Python function '{py_name}' not found in provided namespace")
+    
+    bridge = PythonBridgeFunction(env, params, py_func)
+    env.set(lisp_name, bridge)
+    
+    
 class Macro:
     def __init__(self, proc):
         self.proc = proc
@@ -577,24 +629,25 @@ def print_and_eval(env, *args):
 
 def eval_lisp(env:Env, expression):
     specialforms = {
-        'if':         ifthenelse,
-        'define':     define,
-        'let':        let,
-        'lambda':     create_lambda,
-        'defun':      define_function,
-        'quote':      quote,
-        'quasiquote': eval_quasiquote,
-        'unquote':    unquote,
-        'eval':       eval,
-        'begin':      begin,
-        'set!':       overwrite,
-        'load':       load_and_parse_lisp_file,
-        'defmacro':   defmacro,
-        'while':      while_loop,
-        'print-eval': print_and_eval,
-        'cond':       eval_cond,
-        'do-list':    eval_dolist,
-        'symbol-name': symbol_name,
+        'if':           ifthenelse,
+        'define':       define,
+        'let':          let,
+        'lambda':       create_lambda,
+        'defun':        define_function,
+        'defun-python': defun_python,
+        'quote':        quote,
+        'quasiquote':   eval_quasiquote,
+        'unquote':      unquote,
+        'eval':         eval,
+        'begin':        begin,
+        'set!':         overwrite,
+        'load':         load_and_parse_lisp_file,
+        'defmacro':     defmacro,
+        'while':        while_loop,
+        'print-eval':   print_and_eval,
+        'cond':         eval_cond,
+        'do-list':      eval_dolist,
+        'symbol-name':  symbol_name,
     }
     try:
         if isinstance(expression, Symbol):
@@ -987,6 +1040,26 @@ def first_complete_expr(s: str):
     return None
 
 
+def parse_and_run(main_env, token_generator, debug_level = 0):
+    try:
+        parsed_lisp = parse(token_generator, program=list())
+        run(parsed_lisp, main_env)
+    except TypeError as te:
+        print(f"Error: {te}\n===============\n")
+        if debug_level:
+            traceback.print_exc()
+            print(f"===============\n")
+    except NameError as ne:
+        print(f"Error: {ne}\n===============\n")
+        if debug_level:
+            traceback.print_exc()
+            print(f"===============\n")
+    except ValueError as ve:
+        print(f"Error: {ve}\n===============\n")
+        if debug_level:
+            traceback.print_exc()
+            print(f"===============\n")
+
 def main() -> None:
     debug_level = 0
     main_env = Env()
@@ -1010,68 +1083,39 @@ def main() -> None:
     for lispfile in lispfiles:
 
         if lispfile.exists():
-            try:
-                parsed_lisp = parse(tokenize_file(lispfile))
-
-                run(parsed_lisp, main_env)
-            except TypeError as te:
-                print(f"Error: {te}\n===============\n")
-                traceback.print_exc()
-                print(f"===============\n")
-            except NameError as ne:
-                print(f"Error: {ne}\n===============\n")
-                traceback.print_exc()
-                print(f"===============\n")
-            except ValueError as ve:
-                print(f"Error: {ve}\n===============\n")
-                traceback.print_exc()
-                print(f"===============\n")
+            token_generator = tokenize_file(lispfile)
+            parse_and_run(main_env, token_generator, debug_level)
         else:
             print(f"Can't find {lispfile} from here {os.getcwd()}")
 
 
     buffer = ""
-    while True:
-        if buffer == "":
-            prompt = "user> "
-        else:
-            prompt = "....> "
-
-        line = input(prompt)
-        buffer += line
-
+    try:
         while True:
-            end_idx = first_complete_expr(buffer)
-            if end_idx is None:
-                break
-            expr_text = buffer[:end_idx].strip()
-            buffer = buffer[end_idx:]
-            #print(f"buffer '{buffer}'")
-           
-            if not expr_text:
-                continue
-            
-            try:
+            if buffer == "":
+                prompt = "user> "
+            else:
+                prompt = "....> "
+
+            line = input(prompt)
+            buffer += line
+
+            while True:
+                end_idx = first_complete_expr(buffer)
+                if end_idx is None:
+                    break
+                expr_text = buffer[:end_idx].strip()
+                buffer = buffer[end_idx:]
+                #print(f"buffer '{buffer}'")
+
+                if not expr_text:
+                    continue
+
                 token_generator = tokenize(expr_text)
-                parsed_lisp = parse(token_generator, program=list())
-                run(parsed_lisp, main_env)
-                print("===============")
-            except TypeError as te:
-                print(f"Error: {te}\n===============\n")
-                if debug_level:
-                    traceback.print_exc()
-                    print(f"===============\n")
-            except NameError as ne:
-                print(f"Error: {ne}\n===============\n")
-                if debug_level:
-                    traceback.print_exc()
-                    print(f"===============\n")
-            except ValueError as ve:
-                print(f"Error: {ve}\n===============\n")
-                if debug_level:
-                    traceback.print_exc()
-                    print(f"===============\n")
-            break
+                parse_and_run(main_env, token_generator, debug_level)
+                break
+    except EOFError:
+        print("EoF")
 
 if __name__ == '__main__':
     main()

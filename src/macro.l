@@ -138,6 +138,7 @@
   )
 
 (person (name "Dilling") (vorname '("Thomas" "Heinrich")))
+(defun-python handle-define-stipple (name display stipple) printStipple)
 
 (defmacro drDefineStipple (&rest clauses)
   `(begin ,@(mapcar ,(lambda (clause)
@@ -165,6 +166,7 @@
                              )
                            )
                          (print (print-rows BitMap))
+                         (handle-define-stipple StippleName DisplayName BitMap)
                          0
                          )
                        )
