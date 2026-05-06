@@ -12,7 +12,7 @@ from pathlib import Path
 import traceback
 
 
-def tokenize(s: str):
+def tokenize(s: str)->Generator[str, None, None]:
     i = 0
     while i < len(s):
         c = s[i]
@@ -252,9 +252,6 @@ def lisp_format(fmt, *args):
         return fmt.format(*args)
     except Exception as e:
         raise ValueError(f"format Fehler: {e}")
-
-def create_list(self, args):
-     return list(args)
 
 def greater(a, b):
     ret = True if a>b else None
@@ -541,10 +538,12 @@ def is_macro(x):return isinstance(x, Macro)
 def macroexpand(env, ast):
     while is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
         head = ast[0]
+        val:Symbol|list|Macro|FunctionDef|None = None
         try:
-            val:Symbol|list|Macro|FunctionDef|None = env.get(head)
+            val= env.get(head)
         except Exception:
-            val:Symbol|list|Macro|FunctionDef|None = None
+            pass
+            
 
         if is_macro(val):
             macro : Macro = val
@@ -575,7 +574,7 @@ def print_and_eval(env, *args):
     print(f"{toprint} evaluates to {evaluated}")
     return evaluated
 
-def eval_lisp(env:Env, expression):
+def eval_lisp(env:Env, expression:list|int|float|str|Symbol)->list|int|float|str|Symbol|None:
     specialforms = {
         'if':         ifthenelse,
         'define':     define,
@@ -653,7 +652,7 @@ def eval_dolist(env, spec, *body):
     var_name = spec[0]
     list_expr = spec[1]
 
-    values = eval_lisp(env, list_expr)
+    values:list = eval_lisp(env, list_expr)
 
     result = None
 
