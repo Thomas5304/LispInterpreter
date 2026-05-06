@@ -228,4 +228,4 @@
                                 ( 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1  ) ) )
  )
 ;(define-person :name "Dilling" :vorname "Thomas")
-(exit)
+;(exit)
