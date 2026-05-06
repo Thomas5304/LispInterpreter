@@ -135,7 +135,7 @@ def parse(tokens, program = list()):
             return lst
 
         elif token == ')':
-            raise SyntaxError("Unerwartetes )")
+            raise SyntaxError("Unexpected )")
 
         elif token == "'":
             return ['quote', parse_stream(token_stream)]
