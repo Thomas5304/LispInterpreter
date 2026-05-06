@@ -10,6 +10,7 @@ import os
 import sys
 from pathlib import Path
 import traceback
+import argparse
 
 
 def tokenize(s: str)->Generator[str, None, None]:
@@ -538,7 +539,7 @@ def is_macro(x):return isinstance(x, Macro)
 def macroexpand(env, ast):
     while is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
         head = ast[0]
-        val:Symbol|list|Macro|FunctionDef|None = None
+        val = None
         try:
             val= env.get(head)
         except Exception:
@@ -574,7 +575,7 @@ def print_and_eval(env, *args):
     print(f"{toprint} evaluates to {evaluated}")
     return evaluated
 
-def eval_lisp(env:Env, expression:list|int|float|str|Symbol)->list|int|float|str|Symbol|None:
+def eval_lisp(env:Env, expression):
     specialforms = {
         'if':         ifthenelse,
         'define':     define,
@@ -889,8 +890,16 @@ def main() -> None:
     programname = program.name
     print(f"{programname} located in {programpath}")
 
-    lispfiles = [programpath / Path("lispfile.lisp"),
-                programpath / "macro.l"]
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("lispfiles", nargs="*")
+
+    args = parser.parse_args()
+    
+
+    lispfiles = [programpath / Path("lispfile.lisp")]
+    for lf in args.lispfiles:
+        lispfiles.append(Path(lf).absolute())
 
     for lispfile in lispfiles:
 
