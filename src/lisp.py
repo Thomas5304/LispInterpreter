@@ -881,6 +881,112 @@ def eval(env, args):
     value = eval_lisp(env, args)
     return eval_lisp(env, value)
 
+
+def first_complete_expr(s: str):
+    """
+    Scans s from the left and returns the index at which the first complete
+    S-form ends (exclusive). If no complete form is present, returns None.
+    Accounts for:
+    - parentheses ( )
+    - "strings" with backslash escapes
+    - line comments starting with ';' until EOL
+    - block comments '#| ... |#' (nestable)
+    - character literals '#\\x' (ignores the next character for parenthesis counting)
+    """
+    i = 0
+    n = len(s)
+    paren = 0
+    in_string = False
+    escape = False
+    block_comment = 0
+    while i < n:
+        ch = s[i]
+
+        # Wenn in String: nur auf " (ohne Escape) achten
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == '\\':
+                escape = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+
+        # Wenn in block comment: erkenne |# und #|
+        if block_comment > 0:
+            # erkenne Beginn #| (wenn verschachteln)
+            if ch == '#' and i+1 < n and s[i+1] == '|':
+                block_comment += 1
+                i += 2
+                continue
+            # erkenne Ende |#
+            if ch == '|' and i+1 < n and s[i+1] == '#':
+                block_comment -= 1
+                i += 2
+                continue
+            i += 1
+            continue
+
+        # Nicht in String/Block-Comment
+        if ch == ';':
+            # zeilenkommentar: skip bis EOL
+            # find next newline or end
+            j = s.find('\n', i)
+            if j == -1:
+                # Kommentar bis Ende des aktuellen Puffers -> input möglicherweise unvollständig
+                return None
+            i = j + 1
+            continue
+
+        if ch == '"' :
+            in_string = True
+            i += 1
+            continue
+
+        # block comment start
+        if ch == '#' and i+1 < n and s[i+1] == '|':
+            block_comment += 1
+            i += 2
+            continue
+
+        # character literal: #\ followed von mindestens einem Zeichen; das nächste
+        # Zeichen soll nicht als Klammer gezählt werden (z.B. #\) )
+        if ch == '#' and i+1 < n and s[i+1] == '\\':
+            # überspringe "#\" und das folgende "Zeichen" (sofern vorhanden)
+            i += 2
+            if i < n:
+                # Falls Folgezeichen eine escape-Sequenz oder Name ist, könnte man noch
+                # spezialisierter behandeln; hier überspringen wir mindestens ein Zeichen.
+                i += 1
+            continue
+
+        if ch == '(':
+            paren += 1
+        elif ch == ')':
+            paren -= 1
+            if paren < 0:
+                # unbalancierte schließende Klammer -> die Form endet hier (Fehlerfall)
+                return i+1
+            # wenn paren == 0 und nicht in string/comment, die Form ist abgeschlossen:
+            if paren == 0:
+                # Ausdruck komplett: return Position nach dieser Klammer
+                return i+1
+
+        # normale Weiterzählung
+        i += 1
+
+    # Ende des Puffers: wenn paren==0 und nicht in String/Block-Comment,
+    # könnte trotzdem nichts angefangen worden sein (z.B. nur Whitespace).
+    if paren == 0 and not in_string and block_comment == 0:
+        # evtl. kein top-level Ausdruck begonnen -> None (oder 0)
+        # Wir geben None zurück, damit der Aufrufer bei leerem/unschließendem Input weitere Zeilen erwartet.
+        return None
+
+    # ansonsten: unvollständig (offene Klammern, String oder Block-Comment)
+    return None
+
+
 def main() -> None:
     debug_level = 0
     main_env = Env()
@@ -924,36 +1030,51 @@ def main() -> None:
             print(f"Can't find {lispfile} from here {os.getcwd()}")
 
 
-
+    buffer = ""
     while True:
-        prompt = ""
-        if debug_level:
-            prompt = f"testcase: "
-        test_case = input(prompt)
+        if buffer == "":
+            prompt = "user> "
+        else:
+            prompt = "....> "
 
-        token_generator = tokenize(test_case)
+        line = input(prompt) + "\n"
+        buffer += line
 
-        if debug_level:
-            print(f"test case:\n{test_case}\n-----------\n")
-
-        try:
-            parsed_lisp = parse(token_generator, program=list())
-
-            run(parsed_lisp, main_env)
-            if debug_level:
-                print("===============")
-        except TypeError as te:
-            print(f"Error: {te}\n===============\n")
-            traceback.print_exc()
-            print(f"===============\n")
-        except NameError as ne:
-            print(f"Error: {ne}\n===============\n")
-            traceback.print_exc()
-            print(f"===============\n")
-        except ValueError as ve:
-            print(f"Error: {ve}\n===============\n")
-            traceback.print_exc()
-            print(f"===============\n")
+        while True:
+            end_idx = first_complete_expr(buffer)
+            if end_idx is None:
+                break
+            expr_text = buffer[:end_idx].strip()
+            buffer = buffer[end_idx:]
+            print("Got complete form:", expr_text)
+            
+            if not expr_text:
+                continue
+            
+            try:
+    	        token_generator = tokenize(expr_text)
+                
+                parsed_lisp = parse(token_generator, program=list())
+    	        
+    	        run(parsed_lisp, main_env)
+    	        
+    	        print("===============")
+            except TypeError as te:
+                print(f"Error: {te}\n===============\n")
+                if debug_level:
+                    traceback.print_exc()
+                    print(f"===============\n")
+            except NameError as ne:
+                print(f"Error: {ne}\n===============\n")
+                if debug_level:
+                    traceback.print_exc()
+                    print(f"===============\n")
+            except ValueError as ve:
+                print(f"Error: {ve}\n===============\n")
+                if debug_level:
+                    traceback.print_exc()
+                    print(f"===============\n")
+            break
 
 if __name__ == '__main__':
     main()
