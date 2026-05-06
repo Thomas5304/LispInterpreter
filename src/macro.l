@@ -66,7 +66,7 @@
                              (define value (list (intern
                                     (+ "set-" key)
                                     )
-                                   ,value ,(car (cdr (cdr clause))) ,(car (cdr (cdr (cdr clause))))
+                                   ,value ,(nth 2 clause) ,(nth 3 clause)
                                    )
                                )
                              )
@@ -141,9 +141,9 @@
 
 (defmacro drDefineStipple (&rest clauses)
   `(begin ,@(mapcar ,(lambda (clause)
-                       (let ((DisplayName (car clause))
-                             (StippleName (car (cdr clause)))
-                             (BitMap (car (cdr (cdr clause)))))
+                       (let ((DisplayName (nth 0 clause))
+                             (StippleName (nth 1 clause))
+                             (BitMap      (nth 2 clause)))
                          (print (format "DisplayName: {} StippleName: {}" DisplayName StippleName))
                          (defun print-row (row)
                            (if (null row)
