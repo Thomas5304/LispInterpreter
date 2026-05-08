@@ -1,7 +1,6 @@
 #!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
 from cmath import isinf
 from re import L
-from tokenize import Token
 import textwrap
 from enum import Enum, auto
 from typing import Callable, Any, Iterable, Generator, TypeVar
@@ -12,553 +11,13 @@ from pathlib import Path
 import traceback
 import argparse
 
+from tokenParse import tokenize, tokenize_file, Symbol, atom, is_list, is_symbol, parse
+
 from displayDRF import printStipple
 
-def tokenize(s: str)->Generator[str, None, None]:
-    i = 0
-    while i < len(s):
-        c = s[i]
+import closure
+import lispSupport
 
-        if c == ';':
-            while i < len(s) and s[i] != '\n':
-                i+=1
-            continue
-
-        # whitespace
-        if c.isspace():
-            i += 1
-            continue
-
-        # Klammern
-        if c in '()':
-            yield c
-            i += 1
-            continue
-
-        # unquote /unquote-splice
-        if c in ",":
-            if s[i+1] =='@':
-                c+='@'
-                i+=1
-            yield c
-            i += 1
-            continue
-        # quote / function-quote
-        if c in "#":
-            if s[i+1] =="'":
-                c+="'"
-                i+=1
-            yield c
-            i += 1
-            continue
-        # quote / quasiquote / unquote
-        if c in "'`,":
-            yield c
-            i += 1
-            continue
-
-        # STRING
-        if c == '"':
-            i += 1
-            start = i
-            value = ""
-
-            while i < len(s):
-                if s[i] == '"' and s[i-1] != '\\':
-                    break
-                value += s[i]
-                i += 1
-
-            i += 1  # schließendes "
-            value = value.replace("\\n","\n").replace("\\t", "\t")
-            yield ('STRING', value)
-            continue
-
-        # SYMBOL / ZAHL
-        start = i
-        while i < len(s) and not s[i].isspace() and s[i] not in '()\'`,"':
-            i += 1
-
-        yield s[start:i]
-
-def tokenize_file(filename: Path)->Generator[str, None, None]:
-    with open(filename) as filehandle:
-        for line in filehandle.readlines():
-            yield from tokenize(line)
-
-class Symbol(str):
-    pass
-
-def atom(token):
-    if isinstance(token, tuple):
-        return token[1]
-    try:
-        return int(token)
-    except:
-        try:
-            return float(token)
-        except:
-            return Symbol(token)  # Symbol (z. B. '+', 'x')
-
-def is_list(x):return isinstance(x,list)
-def is_symbol(x):return isinstance(x,Symbol)
-
-def parse(tokens, program = list()):
-    class TokenStream:
-        def __init__(self, generator):
-            self.gen = generator
-            self.buffer = None
-
-        def next(self):
-            if self.buffer is not None:
-                token = self.buffer
-                self.buffer = None
-                return token
-            return next(self.gen)
-
-        def peek(self):
-            if self.buffer is None:
-                self.buffer = next(self.gen)
-            return self.buffer
-
-    def parse_stream(token_stream):
-        token = token_stream.next()
-
-        #print(token)
-
-        if token == '(':
-            lst = []
-            while token_stream.peek() != ')':
-                lst.append(parse_stream(token_stream))
-            _ = token_stream.next()  # ')'
-
-            #print(f"close list {lst}")
-            return lst
-
-        elif token == ')':
-            raise SyntaxError("Unexpected )")
-
-        elif token == "'":
-            return ['quote', parse_stream(token_stream)]
-
-        elif token == '`':
-            return ['quasiquote', parse_stream(token_stream)]
-
-        elif token == ',':
-            return ['unquote', parse_stream(token_stream)]
-
-        elif token == ',@':
-            return ['unquote-splicing', parse_stream(token_stream)]
-
-        elif token == "#'":
-            return ['function', parse_stream(token_stream)]
-
-        else:
-            return atom(token)
-
-    stream = TokenStream(tokens)
-    try:
-        while True:
-            program.append(parse_stream(stream))
-    except StopIteration:
-        return program
-
-class Env:
-    def __init__(self, parent = None):
-        self.data = {}
-        self.parent = parent
-
-    def get(self, name):
-        if name == "t":
-            return True
-
-        if name == "nil":
-            return None
-
-        if name in self.data:
-            return self.data[name]
-        if self.parent is not None:
-            return self.parent.get(name)
-        raise NameError(f"unbound symbol: {name}")
-
-    def set(self, name, value):
-        self.data[name] = value
-
-    def init_env(self, debug_level=0):
-        self.debug_level = debug_level
-        self.set('nil', False)
-        self.set('t', True)
-        self.set('format', lisp_format)
-        self.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
-        self.set('print', print)
-        self.set('list', create_list)
-        self.set('cons', eval_append)
-        self.set('append', eval_append)
-        self.set('and', lambda a, b: a and b)
-        self.set('or', lambda a, b: a or b)
-        self.set('zip', lambda *a: list(zip(*a)))
-        self.set('null', lambda a: "t" if a==[] else "nil")
-        self.set('atom?', lambda a: "t" if not is_list(a) else "nil")
-        self.set('integer?', lambda a: "t" if isinstance(a, int) else "nil")
-        self.set('number?', lambda a: "t" if isinstance(a, float) else "nil")
-        self.set('function?', lambda a: "t" if callable(a) else "nil")
-        self.set('+'   , add)
-        self.set('-'   , sub)
-        self.set('*'   , mult)
-        self.set('/'   , div)
-        self.set('>='  , greaterequal)
-        self.set('>'   , greater)
-        self.set('<='  , lessequal)
-        self.set('<'   , less)
-        self.set('=='  , equal)
-        self.set('!=', lambda a, b: not equal(a, b))
-        self.set('not' , lambda x:  not x )
-        self.set('car' , car)
-        self.set('cdr' , cdr)
-        self.set('print-env', lambda *args: print(str(self)))
-        self.set('map', lisp_map)
-        self.set('mapcar', lisp_mapcar)
-        self.set('apply', lisp_apply)
-        self.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
-        self.set('function', lambda f: f)
-        #self.set('debug', lambda debug_level=None: set_debug_level(debug_level))
-        self.set('last-expr!', None)
-        #self.set('symbol-name', symbol_name)
-        self.set('intern', eval_intern)
-
-    def overwrite(self, name, value):
-        if name in self.data.keys():
-            #print(f"found {name=} old value={self.data[name]}")
-            self.data[name] = value
-            return True
-        if self.parent is None:
-            #print("no parent, returning False")
-            return False
-        #print("search in parent")
-        return self.parent.overwrite(name, value)
-
-
-    def empty(self):
-        if len(self.data) == 0:
-            return True
-        return False
-
-    def __str__(self):
-        ret = ""
-        if self.parent is not None:
-            ret += str(self.parent)
-        return ret + str(self.data)
-
-def lisp_format(fmt, *args):
-    try:
-        return fmt.format(*args)
-    except Exception as e:
-        raise ValueError(f"format Fehler: {e}")
-
-def greater(a, b):
-    ret = True if a>b else None
-    return ret
-
-def greaterequal(a, b):
-    ret = True if a>=b else None
-    return ret
-
-def less(a, b):
-    ret = True if a<b else None
-    return ret
-
-def lessequal(a, b):
-    ret = True if a<=b else None
-    return ret
-
-def equal(a, b):
-    ret = True if a==b else None
-    return ret
-
-def add(*args):
-    if any(isinstance(arg, str) for arg in args):
-        return ''.join(str(arg) for arg in args)
-    try:
-        return sum(args)
-    except TypeError as te:
-        print(f"{te} {args}")
-        traceback.print_exc()
-
-def mult(*args):
-    result = 1
-    for arg in args:
-        result *= arg
-    return result
-
-def sub(*args):
-    l = len(args)
-    if l == 0:
-        raise ValueError("sub with no argument")
-    if l == 1:
-        return -args[0]
-    result = args[0]
-    for arg in args[1:]:
-        result -= arg
-    return result
-
-def div(*args):
-    l = len(args)
-    if l == 0:
-        raise ValueError("sub with no argument")
-    result = args[0]
-    for arg in args:
-        result /= arg
-    return result
-
-def car(args):
-    if not isinstance(args, list) or len(args)==0:
-        raise ValueError("car expects non empty list")
-    return args[0]
-
-def cdr(args):
-    if not isinstance(args, list) or len(args)==0:
-        return 'nil'
-    return args[1:]
-
-def create_list(*args):
-    return list(args)
-
-def eval_append(lst, *args):
-    for arg in args:
-        if isinstance(arg, list):
-            lst.extend(arg)
-        else:
-            lst.append(arg)
-    return lst
-
-def lisp_map(func, *args):
-    if not isinstance(func, FunctionDef) and not callable(func):
-        raise TypeError(f"map: can't call func {func}")
-
-    for nr, lst in enumerate(args):
-        if not isinstance(lst, list):
-            raise TypeError(f"map: element at {nr} is not a list")
-    result = []
-
-    for items in zip(*args):
-        value = func(*items)
-        result.append(value)
-
-    return result
-
-def lisp_mapcar(func, *lists):
-    # Prüfe: mindestens eine Liste
-    if len(lists) == 0:
-        raise TypeError("mapcar braucht mindestens eine Liste")
-
-    # stoppe, wenn irgendeine Liste leer ist
-    result = []
-    # Annahme: Listen werden als Python-Listen repräsentiert
-    while all(lst for lst in lists):  # leere Liste == [] falsy
-        # aktuelle Köpfe
-        heads = [lst[0] for lst in lists]
-
-        val = func(*heads)
-
-        result.append(val)
-        # advance lists
-        lists = [lst[1:] for lst in lists]
-    return result
-
-def lisp_apply(func, *args):
-    # args: optional vorangestellte Argumente, das letzte Argument muss eine Liste sein
-    if len(args) == 0:
-        raise TypeError("apply braucht mindestens ein Argument: die Argumentliste")
-    arglist = args[-1]
-    prefix = list(args[:-1])
-
-    #print(f"{arglist=}")
-    #print(f"{prefix=}")
-
-    if not isinstance(arglist, list):
-        raise TypeError("apply: letztes Argument muss eine Liste sein")
-
-    full_args = prefix + list(arglist)
-
-    # func kann ein Python-callable (builtin) oder eine Closure sein
-    return func(*full_args)
-
-
-def symbol_name(env, symb):
-    if isinstance(symb, Symbol):
-        return str(symb)
-    return symb
-
-def eval_intern(name):
-    if not isinstance(name, str):
-        raise TypeError(f"{name} is not a string")
-    return Symbol(name)
-
-#(print-eval (apply + 20 30 '(1 2 3 4 5)))
-
-def print_lisp_recursive(expression):
-    if isinstance(expression, Symbol):
-        return expression
-    elif isinstance( expression, str):
-        return f'"{expression}"'
-    elif isinstance( expression, (int, float, str)):
-        return str(expression)
-    elif isinstance(expression, (tuple, list)):
-        ret = "("
-        for e in expression:
-            ret+=print_lisp_recursive(e)+" "
-        ret.rstrip()
-        ret += ")"
-        return ret
-    return "???"
-
-def is_keyword(kw):
-    return isinstance(kw, str) and kw.startswith(':')
-
-class FunctionBase:
-    def __init__(self, closure, all_params) -> None:
-        self.key_params = {}
-        if '&rest' in all_params:
-            idx = all_params.index('&rest')
-            if idx>len(all_params)-2:
-                SyntaxError(f"function with &rest is missing name for rest parameter")
-            self.rest_name = all_params[idx+1]
-            all_params = all_params[:-2]
-        else:
-            self.rest_name = None
-
-        if '&key' in all_params:
-            idx = all_params.index('&key')
-
-            for kv in all_params[idx+1:]:
-                if isinstance(kv, (tuple, list)):
-                    k, v = kv
-                    self.key_params[k] = v
-                else:
-                    self.key_params[kv] = None
-            self.params = all_params[:idx]
-            self.param_mode = "keys"
-        else:
-            self.params = all_params
-            self.param_mode = "positional"
-        self.optional = []
-
-        self.closure = closure
-
-    def bind_params(self, *args):
-        env = Env(self.closure)
-        i = 0
-        arg_i = 0
-
-        # ---------------------------
-        # 1. Positional parameters
-        # ---------------------------
-        while i < len(self.params):
-            if arg_i >= len(args):
-                raise Exception("Missing positional argument")
-
-            env.set(self.params[i], args[arg_i])
-            i += 1
-            arg_i += 1
-
-        # ---------------------------
-        # 2. Optional parameters
-        # ---------------------------
-        j = 0
-        while j < len(self.optional):
-            name, default = self.optional[j]
-
-            if arg_i < len(args) and not is_keyword(args[arg_i]):
-                env.set(name, args[arg_i])
-                arg_i += 1
-            else:
-                env.set(name, default)
-
-            j += 1
-
-        # ---------------------------
-        # 3. Keyword arguments
-        # ---------------------------
-        keywords = {}
-        missing_keywords = set(k for k in self.key_params)
-
-        while arg_i < len(args):
-            if is_keyword(args[arg_i]):
-                key = args[arg_i].lstrip(":")
-                arg_i += 1
-
-                if arg_i >= len(args):
-                    raise Exception("Keyword without value")
-
-                value = args[arg_i]
-                arg_i += 1
-
-                missing_keywords.discard(key)
-
-                keywords[key] = value
-            else:
-                break  # no more keywords
-
-        # ---------------------------
-        # 3.1. Perhaps some keyword args are missing
-        # ---------------------------
-        for key in missing_keywords:
-            #print(f"missing keyword: {key} set to default {self.key_params[key]}")
-            keywords[key] = self.key_params[key]
-
-
-        # assign keyword params
-        for k,value in keywords.items():
-                env.set(k, value)
-
-        # ---------------------------
-        # 4. Rest arguments
-        # ---------------------------
-        if self.rest_name:
-            env.set(self.rest_name, args[arg_i:])
-        elif arg_i < len(args):
-            raise Exception("Too many arguments")
-
-        return env
-
-    def __call__(self, *values):
-        new_env = self.bind_params(*values)
-        return eval_lisp(new_env, self.body)
-
-class FunctionDef(FunctionBase):
-    def __init__(self, closure, all_params, body) -> None:
-        super().__init__(closure, all_params)
-        self.body = body
-
-    def __call__(self, *values):
-        new_env = self.bind_params(*values)
-        return eval_lisp(new_env, self.body)
-
-# Hilfsfunktionen zur Konversion (falls nötig)
-def to_python(lisp_val):
-    # einfache Identität; erweitere bei Bedarf (z.B. Symbol -> str, List -> tuple etc.)
-    return lisp_val
-
-def from_python(py_val):
-    # einfache Identität; passe an, falls du spezielle Lisp-Typen brauchst
-    return py_val
-
-# Repräsentation für ein Lisp-Funktionsobjekt, das eine Python-Funktion aufruft
-class PythonBridgeFunction(FunctionBase):
-    def __init__(self, env, all_params, py_func):
-        super().__init__(env, all_params)
-        self.py_func = py_func
-
-    def arity_ok(self, n):
-        return n == len(self.params)
-
-    # aufruf von Eval: args sind bereits evaluierte Lisp-Werte
-    def __call__(self, *values):
-        if not self.arity_ok(len(values)):
-            raise TypeError(f"Expected {len(self.param_names)} args, got {len(values)}")
-        py_args = [to_python(a) for a in values]
-        result = self.py_func(*py_args)
-        return from_python(result)
 
 # Handler für die special form
 def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
@@ -577,17 +36,6 @@ def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
     env.set(lisp_name, bridge)
     
     
-class Macro:
-    def __init__(self, proc):
-        self.proc = proc
-
-    def expand(self, *raw_args):
-        result = self.proc(*raw_args)
-        #print("Macro.expand:", result)
-        return result
-
-def is_macro(x):return isinstance(x, Macro)
-
 def macroexpand(env, ast):
     while is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
         head = ast[0]
@@ -621,13 +69,7 @@ def macroexpand(env, ast):
 
 
 
-def print_and_eval(env, *args):
-    toprint = print_lisp_recursive(*args)
-    evaluated = eval_lisp(env, *args)
-    print(f"{toprint} evaluates to {evaluated}")
-    return evaluated
-
-def eval_lisp(env:Env, expression):
+def eval_lisp(env, expression):
     specialforms = {
         'if':           ifthenelse,
         'define':       define,
@@ -644,13 +86,13 @@ def eval_lisp(env:Env, expression):
         'load':         load_and_parse_lisp_file,
         'defmacro':     defmacro,
         'while':        while_loop,
-        'print-eval':   print_and_eval,
+        'print-eval':   lispSupport.print_and_eval,
         'cond':         eval_cond,
         'do-list':      eval_dolist,
-        'symbol-name':  symbol_name,
+        'symbol-name':  closure.symbol_name,
     }
     try:
-        if isinstance(expression, Symbol):
+        if isinstance(expression, closure.Symbol):
             if is_keyword(expression):
                 return expression
             return env.get(expression)
@@ -689,14 +131,14 @@ def eval_lisp(env:Env, expression):
         else:
             raise ValueError(f"unknown function {function}")
     except ValueError as ve:
-        print(f"{ve}\n in {print_lisp_recursive(expression)}")
+        print(f"{ve}\n in {lispSupport.print_lisp_recursive(expression)}")
         traceback.print_exc()
     except Exception as e:
-        print(f"{e}\n in {print_lisp_recursive(expression)}")
+        print(f"{e}\n in {lispSupport.print_lisp_recursive(expression)}")
         traceback.print_exc()
 
 
-def run(lisp_tree : list[Any], env:Env):
+def run(lisp_tree : list[Any], env:closure.Env):
     for e in lisp_tree:
         env.set('last-expr!', eval_lisp(env, e))
     if env.get('last-expr!') is not None:
@@ -712,7 +154,7 @@ def eval_dolist(env, spec, *body):
 
     for value in values:
 
-        local_env = Env(parent=env)
+        local_env = closure.Env(parent=env)
         local_env.set(var_name, value)
 
         for form in body:
@@ -780,15 +222,15 @@ def ifthenelse(env, condition, true_branch, false_branch = None):
         return eval_lisp(env, false_branch)
     return "nil"
 
-def define(env: Env, *args):
+def define(env: closure.Env, *args):
     (var, value) = args
     env.set(var, eval_lisp(env, value))
 
 def overwrite(env, var, value):
     return "t" if env.overwrite(var, value) else "nil"
 
-def let(env: Env, vars, *expressions):
-    env = Env(env)
+def let(env: closure.Env, vars, *expressions):
+    env = closure.Env(env)
 
     for var in vars:
         define(env, *var)
@@ -869,7 +311,7 @@ def quasiquote(env, ast, depth=0):
     depth: nesting level of quasiquote (1 = we are in quasiquote)
     Returns: AST with unquotes evaluated (for macro expansion)
     """
-    print(f"quasiquote {print_lisp_recursive(ast)}, depth:{depth}")
+    print(f"quasiquote {lispSupport.print_lisp_recursive(ast)}, depth:{depth}")
     # atoms: just return quoted atom as-is (symbols/numbers)
     if not is_list(ast):
         return ast
@@ -905,7 +347,7 @@ def quasiquote(env, ast, depth=0):
     for elem in ast:
         q = quasiquote(env, elem, depth)
         # If element returned a special splicing marker, splice its value into result
-        print(f"for q {print_lisp_recursive(q)}")
+        print(f"for q {lispSupport.print_lisp_recursive(q)}")
         if isinstance(q, tuple) and q and q[0] == '__UNQUOTE_SPLICED__':
             spliced = q[1]
             if not isinstance(spliced, list):
@@ -1062,7 +504,7 @@ def parse_and_run(main_env, token_generator, debug_level = 0):
 
 def main() -> None:
     debug_level = 0
-    main_env = Env()
+    main_env = closure.Env()
     main_env.init_env()
     program = Path(sys.argv[0])
     programpath = program.parent
