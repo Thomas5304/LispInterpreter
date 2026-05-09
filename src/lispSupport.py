@@ -1,4 +1,7 @@
 
+import tokenParse
+
+
 def lisp_format(fmt, *args):
     try:
         return fmt.format(*args)
@@ -136,7 +139,7 @@ def lisp_apply(func, *args):
 #(print-eval (apply + 20 30 '(1 2 3 4 5)))
 
 def print_lisp_recursive(expression):
-    if isinstance(expression, Symbol):
+    if isinstance(expression, tokenParse.Symbol):
         return expression
     elif isinstance( expression, str):
         return f'"{expression}"'
