@@ -125,17 +125,11 @@ def first_complete_expr(s: str):
     return None
 
 
-def run(lisp_tree : list[Any], env:closure.Env):
-    for e in lisp_tree:
-        env.set('last-expr!', closure.eval_lisp(env, e))
-    if env.get('last-expr!') is not None:
-        print(env.get('last-expr!'))
-
         
 def parse_and_run(main_env, token_generator, debug_level = 0):
     parsed_lisp = parse(token_generator, program=list())
     try:
-        run(parsed_lisp, main_env)
+        closure.run(parsed_lisp, main_env)
     except TypeError as te:
         print(f"Error: {te}\n===============\n")
         if debug_level:

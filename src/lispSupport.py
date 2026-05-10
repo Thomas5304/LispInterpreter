@@ -1,5 +1,6 @@
 
 import tokenParse
+import closure
 
 
 def lisp_format(fmt, *args):
@@ -154,9 +155,4 @@ def print_lisp_recursive(expression):
         return ret
     return "???"
 
-def print_and_eval(env, *args):
-    toprint = print_lisp_recursive(*args)
-    evaluated = eval_lisp(env, *args)
-    print(f"{toprint} evaluates to {evaluated}")
-    return evaluated
 

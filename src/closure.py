@@ -2,6 +2,8 @@ import lispSupport
 from tokenParse import tokenize, tokenize_file, Symbol, atom, is_list, is_symbol, parse
 import traceback
 from pathlib import Path
+from typing import Callable, Any, Iterable, Generator, TypeVar
+import importlib
 
 class Env:
     def __init__(self, parent = None):
@@ -265,9 +267,9 @@ def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
     py_name = str(py_name_sym) if is_symbol else py_name_sym
 
     # Namespace, in dem wir python-Funktionen suchen (default: globals())
-    ns = py_namespace if py_namespace is not None else globals()
+    ns = importlib.import_module(py_namespace) if py_namespace is not None else globals()
 
-    py_func = ns.get(py_name)
+    py_func = getattr(ns, py_name)
     if py_func is None:
         raise NameError(f"Python function '{py_name}' not found in provided namespace")
 
@@ -339,6 +341,13 @@ def eval_cond(env, *clauses):
             return result
 
     return None
+
+
+def print_and_eval(env, *args):
+    toprint = lispSupport.print_lisp_recursive(*args)
+    evaluated = eval_lisp(env, *args)
+    print(f"{toprint} evaluates to {evaluated}")
+    return evaluated
 
 def create_lambda(env, *args):
     params, body = args
@@ -557,7 +566,7 @@ def eval_lisp(env, expression):
         'load':         load_and_parse_lisp_file,
         'defmacro':     defmacro,
         'while':        while_loop,
-        'print-eval':   lispSupport.print_and_eval,
+        'print-eval':   print_and_eval,
         'cond':         eval_cond,
         'do-list':      eval_dolist,
         'symbol-name':  symbol_name,
@@ -607,3 +616,9 @@ def eval_lisp(env, expression):
     except Exception as e:
         print(f"{e}\n in {lispSupport.print_lisp_recursive(expression)}")
         traceback.print_exc()
+
+def run(lisp_tree : list[Any], env:Env):
+    for e in lisp_tree:
+        env.set('last-expr!', eval_lisp(env, e))
+    if env.get('last-expr!') is not None:
+        print(env.get('last-expr!'))
