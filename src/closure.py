@@ -30,6 +30,9 @@ class Env:
         self.debug_level = debug_level
         self.set('nil', False)
         self.set('t', True)
+        self.set('function-mode', False)
+        self.set('enable-function-mode',  lambda : self.set('function-mode', True))
+        self.set('disable-function-mode', lambda : self.set('function-mode', False))
         self.set('format', lispSupport.lisp_format)
         self.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
         self.set('print', print)
@@ -538,7 +541,7 @@ def load_and_parse_lisp_file(env, filename):
     if not filepath.exists():
         return "nil"
 
-    parsed_lisp = parse(tokenize_file(filepath), program=list())
+    parsed_lisp = parse(tokenize_file(filepath), program=list(), functionMode=env.get('function-mode'))
 
     run(parsed_lisp, env)
 

@@ -72,7 +72,7 @@ def first_complete_expr(s: str):
             # find next newline or end
             j = s.find('\n', i)
             if j == -1:
-                # Kommentar bis Ende des aktuellen Puffers -> input möglicherweise unvollständig
+                # Kommentar bis Ende des aktuellen Puffers -> input moeglicherweise unvollstaendig
                 return None
             i = j + 1
             continue
@@ -88,14 +88,14 @@ def first_complete_expr(s: str):
             i += 2
             continue
 
-        # character literal: #\ followed von mindestens einem Zeichen; das nächste
-        # Zeichen soll nicht als Klammer gezählt werden (z.B. #\) )
+        # character literal: #\ followed von mindestens einem Zeichen; das naechste
+        # Zeichen soll nicht als Klammer gezaehlt werden (z.B. #\) )
         if ch == '#' and i+1 < n and s[i+1] == '\\':
-            # überspringe "#\" und das folgende "Zeichen" (sofern vorhanden)
+            # ueberspringe "#\" und das folgende "Zeichen" (sofern vorhanden)
             i += 2
             if i < n:
-                # Falls Folgezeichen eine escape-Sequenz oder Name ist, könnte man noch
-                # spezialisierter behandeln; hier überspringen wir mindestens ein Zeichen.
+                # Falls Folgezeichen eine escape-Sequenz oder Name ist, koennte man noch
+                # spezialisierter behandeln; hier ueberspringen wir mindestens ein Zeichen.
                 i += 1
             continue
 
@@ -111,23 +111,23 @@ def first_complete_expr(s: str):
                 # Ausdruck komplett: return Position nach dieser Klammer
                 return i+1
 
-        # normale Weiterzählung
+        # normale Weiterzaehlung
         i += 1
 
     # Ende des Puffers: wenn paren==0 und nicht in String/Block-Comment,
-    # könnte trotzdem nichts angefangen worden sein (z.B. nur Whitespace).
+    # koennte trotzdem nichts angefangen worden sein (z.B. nur Whitespace).
     if paren == 0 and not in_string and block_comment == 0:
         # evtl. kein top-level Ausdruck begonnen -> None (oder 0)
-        # Wir geben None zurück, damit der Aufrufer bei leerem/unschließendem Input weitere Zeilen erwartet.
+        # Wir geben None zurueck, damit der Aufrufer bei leerem/unschließendem Input weitere Zeilen erwartet.
         return None
 
-    # ansonsten: unvollständig (offene Klammern, String oder Block-Comment)
+    # ansonsten: unvollstaendig (offene Klammern, String oder Block-Comment)
     return None
 
 
         
-def parse_and_run(main_env, token_generator, debug_level = 0):
-    parsed_lisp = parse(token_generator, program=list())
+def parse_and_run(main_env, token_generator, debug_level = 0, functionMode = False):
+    parsed_lisp = parse(token_generator, program=list(), functionMode = functionMode)
     try:
         closure.run(parsed_lisp, main_env)
     except TypeError as te:
