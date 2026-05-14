@@ -1,0 +1,20 @@
+(defun-python handle-define-stipple (name display stipple) printStipple displayDRF)
+(defmacro drDefineStipple (&rest clauses)
+  `(begin ,@(mapcar ,(lambda (clause)
+                       (let ((DisplayName (nth 0 clause))
+                             (StippleName (nth 1 clause))
+                             (BitMap      (nth 2 clause)))
+                         (print (format "DisplayName: {} StippleName: {}" DisplayName StippleName))
+                         (handle-define-stipple StippleName DisplayName BitMap)
+                         0
+                         )
+                       )
+                    clauses)
+          )
+
+  )
+
+(print "load display.drf")
+(let ((function-mode t))
+ (load "small.display.drf")
+  )

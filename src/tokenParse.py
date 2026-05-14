@@ -95,7 +95,7 @@ def atom(token):
 def is_list(x):return isinstance(x,list)
 def is_symbol(x):return isinstance(x,Symbol)
 
-def parse(tokens, program = list(), functionMode=False):
+def parse(tokens, program = list(), function_mode=False):
     class TokenStream:
         def __init__(self, generator):
             self.gen = generator
@@ -113,7 +113,7 @@ def parse(tokens, program = list(), functionMode=False):
                 self.buffer = next(self.gen)
             return self.buffer
 
-    def parse_stream(token_stream):
+    def parse_stream(token_stream, function_mode = False):
         token = token_stream.next()
 
         #print(token)
@@ -146,8 +146,9 @@ def parse(tokens, program = list(), functionMode=False):
             return ['function', parse_stream(token_stream)]
 
         else:
-            if functionMode and token_stream.peek() == '(':
+            if function_mode and token_stream.peek() == '(':
                 lst = [atom(token)]
+                #print(f"parser in function mode: correcting {token}(")
                 _ = token_stream.next() # consume (
                 while token_stream.peek() != ')':
                     lst.append(parse_stream(token_stream))
@@ -156,11 +157,11 @@ def parse(tokens, program = list(), functionMode=False):
             else:
                 return atom(token)
 
-    print(f"Parser Mode: {'functionMode' if functionMode else 'S-Expression'}")
+    #print(f"Parser Mode: {'functionMode' if functionMode else 'S-Expression'}")
     stream = TokenStream(tokens)
     try:
         while True:
-            program.append(parse_stream(stream))
+            program.append(parse_stream(stream, function_mode))
     except StopIteration:
         return program
 

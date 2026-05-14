@@ -13,7 +13,7 @@ import argparse
 
 from tokenParse import tokenize, tokenize_file, Symbol, atom, is_list, is_symbol, parse
 
-from displayDRF import printStipple
+#from displayDRF import printStipple
 
 import closure
 import lispSupport
@@ -127,7 +127,7 @@ def first_complete_expr(s: str):
 
         
 def parse_and_run(main_env, token_generator, debug_level = 0, functionMode = False):
-    parsed_lisp = parse(token_generator, program=list(), functionMode = functionMode)
+    parsed_lisp = parse(token_generator, program=list(), function_mode = functionMode)
     try:
         closure.run(parsed_lisp, main_env)
     except TypeError as te:

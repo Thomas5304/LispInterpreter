@@ -66,7 +66,8 @@ def div(*args):
 
 def car(args):
     if not isinstance(args, list) or len(args)==0:
-        raise ValueError("car expects non empty list")
+        return "nil"
+        #raise ValueError("car expects non empty list")
     return args[0]
 
 def cdr(args):

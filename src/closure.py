@@ -265,7 +265,7 @@ def is_keyword(kw):
 
 # Handler für die special form
 def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
-    print(f"defun_python")
+    #print(f"defun_python")
     # py_name_sym kann ein Symbol sein; hier nehmen wir an, es ist der Name als string
     py_name = str(py_name_sym) if is_symbol else py_name_sym
 
@@ -311,6 +311,9 @@ def macroexpand(env, ast):
     #print(f"after macroexpand {ast}")
     return ast
 
+def eval_macroexpand_1(env, ast):
+    _, subast = ast
+    print(lispSupport.print_lisp_recursive(macroexpand(env, subast)))
 
 def eval_dolist(env, spec, *body):
     var_name = spec[0]
@@ -541,7 +544,7 @@ def load_and_parse_lisp_file(env, filename):
     if not filepath.exists():
         return "nil"
 
-    parsed_lisp = parse(tokenize_file(filepath), program=list(), functionMode=env.get('function-mode'))
+    parsed_lisp = parse(tokenize_file(filepath), program=list(), function_mode=env.get('function-mode'))
 
     run(parsed_lisp, env)
 
@@ -573,6 +576,7 @@ def eval_lisp(env, expression):
         'cond':         eval_cond,
         'do-list':      eval_dolist,
         'symbol-name':  symbol_name,
+        'macroexpand-1': eval_macroexpand_1,
     }
     try:
         if isinstance(expression, Symbol):
