@@ -70,6 +70,7 @@ class Env:
         self.set('last-expr!', None)
         #self.set('symbol-name', symbol_name)
         self.set('intern', eval_intern)
+        self.set('length', lambda x: len(x) if is_list(x) else 0)
 
     def overwrite(self, name, value):
         if name in self.data.keys():

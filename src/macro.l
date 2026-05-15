@@ -139,33 +139,10 @@
 ;
 ;(person (name "Dilling") (vorname '("Thomas" "Heinrich")))
 (defun-python handle-define-stipple (name display stipple) createStipple displayDRF)
-(defun-python handle-define-lpp (layer purpose) createLPP displayDRF)
+(defun-python handle-define-lpp (layer purpose (&optional stippleName)) createLPP displayDRF)
 (defun-python handle-define-layer (layer) createLayer displayDRF)
 (defun-python handle-define-purpose (purpose) createPurpose displayDRF)
 
-
-;; previously used in drDefineStipple
-;;                         ;(print (format "DisplayName: {} StippleName: {}" DisplayName StippleName))
-;;                         (defun print-row (row)
-;;                           (if (null row)
-;;                               ""
-;;                             (+ (if (== (car row) 0)
-;;                                    " "
-;;                                  "X"
-;;                                  )
-;;                                (print-row (cdr row))
-;;                                )
-;;                             )
-;;                           )
-;;                         (defun print-rows (rows)
-;;                           (if (null rows)
-;;                               ""
-;;                             (+  (print-row (car rows)) "\n"
-;;                                 (print-rows (cdr rows))
-;;                                 )
-;;                             )
-;;                           )
-;;                         ;(print (print-rows BitMap))
 
 (defmacro drDefineStipple (&rest clauses)
   `(begin ,@(mapcar ,(lambda (clause)
@@ -184,9 +161,9 @@
   `(begin ,@(mapcar ,(lambda (clause)
                        (let ((layerName   (nth 0 clause))
                              (purposeName (nth 1 clause))
-                             (stippleName (if (>= len(clause) 3)
+                             (stippleName (if (>= (length clause) 3)
                                           (nth 2 clause)
-                                          (""))
+                                          ""))
                             )
                             (handle-define-lpp layerName purposeName stippleName)
                             0
