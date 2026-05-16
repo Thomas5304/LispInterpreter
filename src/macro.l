@@ -187,7 +187,7 @@
   )
 
 (defmacro dfPurpose (&rest clauses)
-  `(begin ,@(mapcar ,(lambda (clause)
+  `(list ,@(mapcar ,(lambda (clause)
                        (let ((purposeName   (nth 0 clause)))
                             (handle-define-purpose purposeName)
                             0
@@ -203,4 +203,48 @@
  (load "small.display.drf")
   )
 ;(define-person :name "Dilling" :vorname "Thomas")
+(print "testcase" '(my-and (== 1 1) (> 2 1) (< 1 2)))
+(print-eval (my-and (== 1 1) (> 2 2) (< 1 2)))
+(print "testcase expanded: " (macroexpand-1 (my-and (== 1 1) (> 2 1) (< 3 3))))
+
+(defmacro test (&rest a)
+    `(+ 10 ,@a))
+
+(print (macroexpand (test 2 3)))
+(print (test 2 3))
+
+(print (cond ((== 1 2) "test1")
+             ((== 2 3) "test2")
+             (t        "test3")
+        )
+)
+(print (null '()))
+(print (null '(1 2)))
+(print (null (cdr '( 2))))
+(print (macroexpand-1 (dfPurpose (ma1) (ma2))))
+(print (macroexpand (my-cond ((== 1 2) "test1")
+             ((== 3 3) "test2")
+             (t        "test3")
+        )
+        )
+)
+(print (my-cond ((== 1 2) "test1")
+             ((== 3 3) "test2")
+             (t        "test3")
+        )
+)
+
+(print (macroexpand-1 
+    (when (> 1 0) (+ 1 2) (* 2 2 2) )
+))
+(print
+    (when (> 1 0) (+ 1 2) (* 2 2 2) )
+)
+(print (macroexpand-1
+    (unless (> 1 0) (+ 1 2) (* 2 2 2) )
+))
+(print
+    (unless (> 1 0) (+ 1 2) (* 2 2 2) )
+)
+
 (exit)

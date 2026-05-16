@@ -42,7 +42,7 @@ class Env:
         self.set('and', lambda a, b: a and b)
         self.set('or', lambda a, b: a or b)
         self.set('zip', lambda *a: list(zip(*a)))
-        self.set('null', lambda a: "t" if a==[] else "nil")
+        self.set('null', lambda a: len(a)==0)
         self.set('atom?', lambda a: "t" if not is_list(a) else "nil")
         self.set('integer?', lambda a: "t" if isinstance(a, int) else "nil")
         self.set('number?', lambda a: "t" if isinstance(a, float) else "nil")
@@ -70,7 +70,7 @@ class Env:
         self.set('last-expr!', None)
         #self.set('symbol-name', symbol_name)
         self.set('intern', eval_intern)
-        self.set('length', lambda x: len(x) if is_list(x) else 0)
+        #self.set('length', lambda x: len(x) if is_list(x) else 0)
 
     def overwrite(self, name, value):
         if name in self.data.keys():
@@ -244,8 +244,9 @@ class Macro:
         self.proc = proc
 
     def expand(self, *raw_args):
+        #print("Macro.expand 1:", raw_args)
         result = self.proc(*raw_args)
-        #print("Macro.expand:", result)
+        #print("Macro.expand 2:", result)
         return result
 
 def is_macro(x):return isinstance(x, Macro)
@@ -281,8 +282,10 @@ def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
     env.set(lisp_name, bridge)
 
 
-def macroexpand(env, ast):
-    while is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
+def macroexpand(env, ast, depth=-1):
+    while (depth < 0 or depth > 0) and is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
+        #print(f"macroexpand while {depth}: {ast}")
+        depth = depth - 1
         head = ast[0]
         val = None
         try:
@@ -298,10 +301,10 @@ def macroexpand(env, ast):
 
             #print(f"macroexpand {head} before: {raw_args}\n")
 
-            #print(f"macro param: {macro.proc.params} set to {raw_args}\n")
+            #print(f"macro param: {', '.join(macro.proc.params)} rest: {macro.proc.rest_name} set to {raw_args}\n")
             ast = macro.expand(*raw_args)
-            if isinstance(ast, Env):
-                raise TypeError("this is a Env")
+            #if isinstance(ast, Env):
+            #    raise TypeError("this is a Env")
             #print(f"macroexpand {head}  after: {ast}\n\n")
 
             continue
@@ -312,9 +315,13 @@ def macroexpand(env, ast):
     #print(f"after macroexpand {ast}")
     return ast
 
+
+def eval_macroexpand(env, ast):
+    return macroexpand(env, ast, depth=-1)
+    
 def eval_macroexpand_1(env, ast):
-    _, subast = ast
-    print(lispSupport.print_lisp_recursive(macroexpand(env, subast)))
+    return macroexpand(env, ast, depth=1)
+
 
 def eval_dolist(env, spec, *body):
     var_name = spec[0]
@@ -333,6 +340,7 @@ def eval_dolist(env, spec, *body):
             result = eval_lisp(local_env, form)
 
     return result
+
 
 def eval_cond(env, *clauses):
     for clause in clauses:
@@ -432,7 +440,7 @@ def quote(env, args):
 def eval_quasiquote(env, expr):
 
     # atom
-    if not isinstance(expr, list):
+    if not isinstance(expr, (list, tuple)):
         return expr
 
     result = []
@@ -444,7 +452,7 @@ def eval_quasiquote(env, expr):
         # --------------------
 
         if (
-            isinstance(item, list)
+            isinstance(item, (list,tuple))
             and len(item) > 0
             and item[0] == "unquote"
         ):
@@ -457,16 +465,16 @@ def eval_quasiquote(env, expr):
         # --------------------
 
         elif (
-            isinstance(item, list)
+            isinstance(item, (list, tuple))
             and len(item) > 0
             and item[0] == "unquote-splicing"
         ):
 
             values = eval_lisp(env, item[1])
 
-            if not isinstance(values, list):
+            if not isinstance(values, (list, tuple)):
                 raise Exception(
-                    "unquote-splicing requires list"
+                    f"unquote-splicing requires list {item[1]} -> {values}"
                 )
 
             result.extend(values)
@@ -578,6 +586,7 @@ def eval_lisp(env, expression):
         'do-list':      eval_dolist,
         'symbol-name':  symbol_name,
         'macroexpand-1': eval_macroexpand_1,
+        'macroexpand': eval_macroexpand,
     }
     try:
         if isinstance(expression, Symbol):

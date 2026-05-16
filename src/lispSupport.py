@@ -65,13 +65,13 @@ def div(*args):
     return result
 
 def car(args):
-    if not isinstance(args, list) or len(args)==0:
+    if not isinstance(args, (list, tuple)) or len(args)==0:
         return "nil"
         #raise ValueError("car expects non empty list")
     return args[0]
 
 def cdr(args):
-    if not isinstance(args, list) or len(args)==0:
+    if not isinstance(args, (list,tuple)) or len(args)==0:
         return 'nil'
     return args[1:]
 

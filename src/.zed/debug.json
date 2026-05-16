@@ -5,20 +5,11 @@
 [
   {
     "adapter": "Debugpy",
-    "label": "run module '…c/tokenParse.py'",
-    "request": "launch",
-    "python": "$ZED_CUSTOM_PYTHON_ACTIVE_ZED_TOOLCHAIN",
-    "args": [],
-    "cwd": "$ZED_WORKTREE_ROOT",
-    "module": "$ZED_CUSTOM_PYTHON_MODULE_NAME"
-  },
-  {
-    "adapter": "Debugpy",
-    "label": "run '/Users/thomas/Projects/LispInterpreter/src/lisp.py'",
+    "label": "debug '/Users/thomas/Projects/LispInterpreter/src/lisp.py'",
     "request": "launch",
     "python": "$ZED_CUSTOM_PYTHON_ACTIVE_ZED_TOOLCHAIN",
     "args": ["macro.l"],
     "cwd": "$ZED_WORKTREE_ROOT",
-    "program": "\"$ZED_FILE\""
-  }
+    "program": "lisp.py"
+  },
 ]
