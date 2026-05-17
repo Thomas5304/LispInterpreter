@@ -40,3 +40,12 @@
 (defmacro unless (condition &rest body)
     `(if (not ,condition) (begin ,@body) nil)
 )
+(defmacro for (var from start to end &rest body)
+  `(let ((,var ,start)
+	 (max ,end))
+     (while (< ,var max)
+       ,@body
+       (define ,var (+ ,var 1))
+       )
+     )
+  )

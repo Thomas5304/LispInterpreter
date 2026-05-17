@@ -246,5 +246,8 @@
 (print
     (unless (> 1 0) (+ 1 2) (* 2 2 2) )
 )
-
+(for i from 2 to 11
+    (print i " = " (* i i))
+    (print )
+    )
 (exit)

@@ -1,0 +1,60 @@
+* Meine Lisp-Spielereien
+
+** settings
+
+Abschalten der Frage, ob der Code ausgeführt werden darf
+#+begin_src emacs-lisp
+  (org-bable-do-load-languages
+   'org-bable-load-languages
+   '((emacs-lisp . t)
+     (lisp . t)
+     (common-lisp . t))
+   )
+  (setq org-confirm-babel-evaluate nil)
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src emacs-lisp
+  (+ 1 3)
+#+end_src
+
+#+RESULTS:
+
+* Macros zum lesen von PERSON DSL
+
+#+begin_src emacs-lisp
+  (defun define-person (&key name vorname) (print vorname name))
+  (defmacro person (&rest clauses)
+    '(define-person
+      ,@(apply append (mapcar
+  		     (lambda (clause)
+  		       (let ((key (car clause))
+  			     (value (cadr clause))
+  			     )
+  			 (list (intern
+  				(+ ":" key)
+  				)
+  			       ,value
+  			       )
+  			 )
+  		       )
+  		     clauses
+  		     )
+  	     )
+      )
+    )
+
+  (define-person (name Dilling) (vorname Thomas))
+#+end_src
+
+#+begin_src emacs-lisp
+  (defmacro inc (var)
+    (list `setq var (list '1+ var)))
+  (macroexpand '(inc r))
+  
+#+end_src
+
+#+RESULTS:
+| setq | r | (1+ r) |
