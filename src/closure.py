@@ -555,9 +555,18 @@ def load_and_parse_lisp_file(env, filename):
 
     parsed_lisp = parse(tokenize_file(filepath), program=list(), function_mode=env.get('function-mode'))
 
-    run(parsed_lisp, env)
+    return run(parsed_lisp, env)
 
-    return "t"
+    
+def include(env, filename):
+    filepath = Path(filename).absolute()
+    if not filepath.exists():
+        return "nil"
+
+    parsed_lisp = parse(tokenize_file(filepath), program=list(), function_mode=env.get('function-mode'))
+
+    return run(parsed_lisp, env)
+
 
 def eval(env, args):
     value = eval_lisp(env, args)
@@ -629,13 +638,26 @@ def eval_lisp(env, expression):
             raise ValueError(f"unknown function {function}")
     except ValueError as ve:
         print(f"{ve}\n in {lispSupport.print_lisp_recursive(expression)}")
-        traceback.print_exc()
+        #traceback.print_exc()
+        raise
     except Exception as e:
         print(f"{e}\n in {lispSupport.print_lisp_recursive(expression)}")
-        traceback.print_exc()
+        #traceback.print_exc()
+        raise
 
 def run(lisp_tree : list[Any], env:Env):
     for e in lisp_tree:
-        env.set('last-expr!', eval_lisp(env, e))
-    if env.get('last-expr!') is not None:
-        print(env.get('last-expr!'))
+        try:
+            env.set('last-expr!', eval_lisp(env, e))
+        except ValueError as ve:
+            print(f"{ve}\n in {lispSupport.print_lisp_recursive(e)}")
+            #traceback.print_exc()
+            raise
+        except Exception as exc:
+            print(f"{exc}\n in {lispSupport.print_lisp_recursive(e)}")
+            #traceback.print_exc()
+            raise
+        
+        if env.get('last-expr!') is not None:
+            print(env.get('last-expr!'))
+
