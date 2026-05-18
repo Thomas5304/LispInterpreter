@@ -1,10 +1,12 @@
 #!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
-from typing import Callable, Any, Iterable, Generator, TypeVar
+from typing import Callable, Any, Iterable, Generator, TypeVar, Protocol
 from dataclasses import dataclass, field
 import os
 import sys
 from pathlib import Path
 import traceback
+
+        
 
 def tokenize(s: str)->Generator[str, None, None]:
     i = 0
@@ -78,6 +80,21 @@ def tokenize_file(filename: Path)->Generator[str, None, None]:
         for line in filehandle.readlines():
             yield from tokenize(line)
 
+class Tokenize_file:
+    def __init__(self, filename):
+        "reads tokens from filename"
+        self.filename = Path(filename)
+
+    def __call__(self):
+        with open(self.filename) as filehandle:
+            for line in filehandle.readlines():
+                yield from tokenize(line)
+
+    def __next__(self):
+        return next(self.__call__())
+        
+        
+            
 class Symbol(str):
     pass
 
@@ -97,9 +114,10 @@ def is_symbol(x):return isinstance(x,Symbol)
 
 def parse(tokens, program = list(), function_mode=False):
     class TokenStream:
-        def __init__(self, generator):
+        def __init__(self, generator, previousStream = None):
             self.gen = generator
             self.buffer = None
+            self.previousStream = previousStream
 
         def next(self):
             if self.buffer is not None:
@@ -113,6 +131,11 @@ def parse(tokens, program = list(), function_mode=False):
                 self.buffer = next(self.gen)
             return self.buffer
 
+        def get_dir(self):
+            if isinstance(self.gen, Tokenize_file):
+                return self.gen.parent
+            return Path(os.get_current_dir())
+
     def parse_stream(token_stream, function_mode = False):
         token = token_stream.next()
 
@@ -124,6 +147,13 @@ def parse(tokens, program = list(), function_mode=False):
                 lst.append(parse_stream(token_stream))
             _ = token_stream.next()  # ')'
 
+            if len(lst) == 2 and lst[0] == "include":
+                includefile = Path(lst[1])
+                if not includefile.is_absolute():
+                    # relative path: combine with location of include file
+                    includefile = token_stream.get_dir() / includefile
+                if includefile.exists():
+                    new_token_stream = TokenStream(Tokenize_file(include_file))
             #print(f"close list {lst}")
             return lst
 

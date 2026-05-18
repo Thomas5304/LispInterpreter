@@ -11,7 +11,7 @@ from pathlib import Path
 import traceback
 import argparse
 
-from tokenParse import tokenize, tokenize_file, Symbol, atom, is_list, is_symbol, parse
+from tokenParse import tokenize, Tokenize_file, Symbol, atom, is_list, is_symbol, parse
 
 #from displayDRF import printStipple
 
@@ -173,7 +173,7 @@ def main() -> None:
     for lispfile in lispfiles:
 
         if lispfile.exists():
-            token_generator = tokenize_file(lispfile)
+            token_generator = Tokenize_file(lispfile)
             parse_and_run(main_env, token_generator, debug_level)
         else:
             print(f"Can't find {lispfile} from here {os.getcwd()}")

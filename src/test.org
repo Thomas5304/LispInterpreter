@@ -4,12 +4,7 @@
 
 Abschalten der Frage, ob der Code ausgeführt werden darf
 #+begin_src emacs-lisp
-  (org-bable-do-load-languages
-   'org-bable-load-languages
-   '((emacs-lisp . t)
-     (lisp . t)
-     (common-lisp . t))
-   )
+
   (setq org-confirm-babel-evaluate nil)
 #+end_src
 
@@ -21,6 +16,7 @@ Abschalten der Frage, ob der Code ausgeführt werden darf
 #+end_src
 
 #+RESULTS:
+: 4
 
 * Macros zum lesen von PERSON DSL
 
