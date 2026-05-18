@@ -58,3 +58,16 @@ Abschalten der Frage, ob der Code ausgeführt werden darf
 
 #+RESULTS:
 | setq | r | (1+ r) |
+
+#+begin_src emacs-lisp
+  (+ (* 10 2 ) (+ 2 (- 100 a ) ) )
+#+end_src
+
+#+begin_src python
+  def plus(a):
+      return lambda x: a + x
+
+  adda = plus(10)
+
+  print(adda(3))
+#+end_src
