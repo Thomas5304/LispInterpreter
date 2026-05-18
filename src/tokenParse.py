@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 import traceback
 
-        
+
 
 def tokenize(s: str)->Generator[str, None, None]:
     i = 0
@@ -85,16 +85,14 @@ class Tokenize_file:
         "reads tokens from filename"
         self.filename = Path(filename)
 
+
     def __call__(self):
         with open(self.filename) as filehandle:
             for line in filehandle.readlines():
                 yield from tokenize(line)
 
-    def __next__(self):
-        return next(self.__call__())
-        
-        
-            
+
+
 class Symbol(str):
     pass
 
@@ -153,7 +151,8 @@ def parse(tokens, program = list(), function_mode=False):
                     # relative path: combine with location of include file
                     includefile = token_stream.get_dir() / includefile
                 if includefile.exists():
-                    new_token_stream = TokenStream(Tokenize_file(include_file))
+                    new_tokenize_file = Tokenize_file(include_file)
+                    new_token_stream = TokenStream(new_tokenize_file(), token_stream)
             #print(f"close list {lst}")
             return lst
 
@@ -194,4 +193,3 @@ def parse(tokens, program = list(), function_mode=False):
             program.append(parse_stream(stream, function_mode))
     except StopIteration:
         return program
-

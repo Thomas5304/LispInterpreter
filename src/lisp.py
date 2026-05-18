@@ -174,7 +174,7 @@ def main() -> None:
 
         if lispfile.exists():
             token_generator = Tokenize_file(lispfile)
-            parse_and_run(main_env, token_generator, debug_level)
+            parse_and_run(main_env, token_generator(), debug_level)
         else:
             print(f"Can't find {lispfile} from here {os.getcwd()}")
 
