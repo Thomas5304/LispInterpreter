@@ -132,7 +132,7 @@ def parse(tokens, program = list(), function_mode=False):
         def get_dir(self):
             if isinstance(self.gen, Tokenize_file):
                 return self.gen.parent
-            return Path(os.get_current_dir())
+            return Path(os.getcwd())
 
     def parse_stream(token_stream, function_mode = False):
         token = token_stream.next()
@@ -151,8 +151,8 @@ def parse(tokens, program = list(), function_mode=False):
                     # relative path: combine with location of include file
                     includefile = token_stream.get_dir() / includefile
                 if includefile.exists():
-                    new_tokenize_file = Tokenize_file(include_file)
-                    new_token_stream = TokenStream(new_tokenize_file(), token_stream)
+                    new_tokenize_file = Tokenize_file(includefile)
+                    lst = TokenStream(new_tokenize_file(), token_stream)
             #print(f"close list {lst}")
             return lst
 

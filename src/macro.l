@@ -200,7 +200,7 @@
 
 (print "load display.drf")
 (let ((function-mode t))
- (load "small.display.drf")
+ (eval (include "small.display.drf"))
   )
 ;(define-person :name "Dilling" :vorname "Thomas")
 (print "testcase" '(my-and (== 1 1) (> 2 1) (< 1 2)))
