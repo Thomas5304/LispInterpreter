@@ -212,16 +212,16 @@ class FunctionDef(FunctionBase):
         return eval_lisp(new_env, self.body)
 
 
-# Hilfsfunktionen zur Konversion (falls nötig)
+# Hilfsfunktionen zur Konversion (falls noetig)
 def to_python(lisp_val):
-    # einfache Identität; erweitere bei Bedarf (z.B. Symbol -> str, List -> tuple etc.)
+    # einfache Identitaet; erweitere bei Bedarf (z.B. Symbol -> str, List -> tuple etc.)
     return lisp_val
 
 def from_python(py_val):
-    # einfache Identität; passe an, falls du spezielle Lisp-Typen brauchst
+    # einfache Identitaet; passe an, falls du spezielle Lisp-Typen brauchst
     return py_val
 
-# Repräsentation für ein Lisp-Funktionsobjekt, das eine Python-Funktion aufruft
+# Repraesentation fuer ein Lisp-Funktionsobjekt, das eine Python-Funktion aufruft
 class PythonBridgeFunction(FunctionBase):
     def __init__(self, env, all_params, py_func):
         super().__init__(env, all_params)
@@ -265,7 +265,7 @@ def eval_intern(name):
 def is_keyword(kw):
     return isinstance(kw, str) and kw.startswith(':')
 
-# Handler für die special form
+# Handler fuer die special form
 def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
     #print(f"defun_python")
     # py_name_sym kann ein Symbol sein; hier nehmen wir an, es ist der Name als string
@@ -386,7 +386,7 @@ def while_loop(env, cond_expr, *body_exprs):
             for expr in body_exprs:
                 last_val = eval_lisp(env, expr)
         except Exception as e:
-            print(e)
+            #print(e)
             traceback.print_exc()
     return last_val
 
@@ -498,7 +498,7 @@ def quasiquote(env, ast, depth=0):
     depth: nesting level of quasiquote (1 = we are in quasiquote)
     Returns: AST with unquotes evaluated (for macro expansion)
     """
-    print(f"quasiquote {lispSupport.print_lisp_recursive(ast)}, depth:{depth}")
+    #print(f"quasiquote {lispSupport.print_lisp_recursive(ast)}, depth:{depth}")
     # atoms: just return quoted atom as-is (symbols/numbers)
     if not is_list(ast):
         return ast
@@ -534,7 +534,7 @@ def quasiquote(env, ast, depth=0):
     for elem in ast:
         q = quasiquote(env, elem, depth)
         # If element returned a special splicing marker, splice its value into result
-        print(f"for q {lispSupport.print_lisp_recursive(q)}")
+        ##print(f"for q {lispSupport.print_lisp_recursive(q)}")
         if isinstance(q, tuple) and q and q[0] == '__UNQUOTE_SPLICED__':
             spliced = q[1]
             if not isinstance(spliced, list):
@@ -558,14 +558,20 @@ def load_and_parse_lisp_file(env, filename):
     return run(parsed_lisp, env)
 
     
-def include(env, filename):
+def eval_include(env, filename):
+    breakpoint()
+    if isinstance(filename, str):
+        pass
+    if isinstance(filename, Symbol):
+        filename = str(filename)
+
+    print(f"filename: {filename}")
     filepath = Path(filename).absolute()
     if not filepath.exists():
         return "nil"
 
     parsed_lisp = parse(tokenize_file(filepath), program=list(), function_mode=env.get('function-mode'))
-
-    return run(parsed_lisp, env)
+    return [parsed_lisp]
 
 
 def eval(env, args):
@@ -575,27 +581,28 @@ def eval(env, args):
 
 def eval_lisp(env, expression):
     specialforms = {
-        'if':           ifthenelse,
-        'define':       define,
-        'let':          let,
-        'lambda':       create_lambda,
-        'defun':        define_function,
-        'defun-python': defun_python,
-        'quote':        quote,
-        'quasiquote':   eval_quasiquote,
-        'unquote':      unquote,
-        'eval':         eval,
-        'begin':        begin,
-        'set!':         overwrite,
-        'load':         load_and_parse_lisp_file,
-        'defmacro':     defmacro,
-        'while':        while_loop,
-        'print-eval':   print_and_eval,
-        'cond':         eval_cond,
-        'do-list':      eval_dolist,
-        'symbol-name':  symbol_name,
+        'if':            ifthenelse,
+        'define':        define,
+        'let':           let,
+        'lambda':        create_lambda,
+        'defun':         define_function,
+        'defun-python':  defun_python,
+        'quote':         quote,
+        'quasiquote':    eval_quasiquote,
+        'unquote':       unquote,
+        'eval':          eval,
+        'begin':         begin,
+        'set!':          overwrite,
+        'load':          load_and_parse_lisp_file,
+        'defmacro':      defmacro,
+        'while':         while_loop,
+        'print-eval':    print_and_eval,
+        'cond':          eval_cond,
+        'do-list':       eval_dolist,
+        'symbol-name':   symbol_name,
         'macroexpand-1': eval_macroexpand_1,
-        'macroexpand': eval_macroexpand,
+        'macroexpand':   eval_macroexpand,
+        'include':       eval_include,
     }
     try:
         if isinstance(expression, Symbol):

@@ -11,7 +11,7 @@ from pathlib import Path
 import traceback
 import argparse
 
-from tokenParse import tokenize, Tokenize_file, Symbol, atom, is_list, is_symbol, parse
+from tokenParse import tokenize, Tokenize_file, tokenize_file, Symbol, atom, is_list, is_symbol, parse
 
 #from displayDRF import printStipple
 
@@ -129,6 +129,7 @@ def first_complete_expr(s: str):
 def parse_and_run(main_env, token_generator, debug_level = 0, functionMode = False):
     parsed_lisp = parse(token_generator, program=list(), function_mode = functionMode)
     try:
+        #print(parsed_lisp)
         closure.run(parsed_lisp, main_env)
     except TypeError as te:
         print(f"Error: {te}\n===============\n")
@@ -150,7 +151,15 @@ def parse_and_run(main_env, token_generator, debug_level = 0, functionMode = Fal
             print(f"===============\n")
 
 
-def main() -> None:
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("lispfiles", nargs="*")
+
+    return parser.parse_args()
+
+
+def lisp_interpreter(args):
     debug_level = 1
     main_env = closure.Env()
     main_env.init_env()
@@ -159,13 +168,6 @@ def main() -> None:
     programname = program.name
     print(f"{programname} located in {programpath}")
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("lispfiles", nargs="*")
-
-    args = parser.parse_args()
-
-
     lispfiles = [programpath / Path("lispfile.lisp")]
     for lf in args.lispfiles:
         lispfiles.append(Path(lf).absolute())
@@ -173,8 +175,10 @@ def main() -> None:
     for lispfile in lispfiles:
 
         if lispfile.exists():
-            token_generator = Tokenize_file(lispfile)
-            parse_and_run(main_env, token_generator(), debug_level)
+            #print(f"reading {lispfile}")
+            #breakpoint()
+            token_generator = tokenize_file(lispfile)
+            parse_and_run(main_env, token_generator, debug_level)
         else:
             print(f"Can't find {lispfile} from here {os.getcwd()}")
 
@@ -206,6 +210,11 @@ def main() -> None:
                 break
     except EOFError:
         print("EoF")
+    
 
+def main() -> None:
+    args = parse_arguments()
+    lisp_interpreter(args)
+    
 if __name__ == '__main__':
     main()

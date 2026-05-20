@@ -63,7 +63,7 @@ def tokenize(s: str)->Generator[str, None, None]:
                 value += s[i]
                 i += 1
 
-            i += 1  # schließendes "
+            i += 1  # schliessendes "
             value = value.replace("\\n","\n").replace("\\t", "\t")
             yield ('STRING', value)
             continue
@@ -76,14 +76,17 @@ def tokenize(s: str)->Generator[str, None, None]:
         yield s[start:i]
 
 def tokenize_file(filename: Path)->Generator[str, None, None]:
-    with open(filename) as filehandle:
+    with open(filename, "r", encoding="utf-8", errors="ignore") as filehandle:
         for line in filehandle.readlines():
             yield from tokenize(line)
 
 class Tokenize_file:
     def __init__(self, filename):
-        "reads tokens from filename"
-        self.filename = Path(filename)
+
+        if isinstance(filename, Path):
+            self.filename = filename
+        else:
+            self.filename = Path(filename)
 
 
     def __call__(self):
@@ -112,27 +115,44 @@ def is_symbol(x):return isinstance(x,Symbol)
 
 def parse(tokens, program = list(), function_mode=False):
     class TokenStream:
-        def __init__(self, generator, previousStream = None):
-            self.gen = generator
+        def __init__(self, generator):
+            self.gen = [generator]
             self.buffer = None
-            self.previousStream = previousStream
 
         def next(self):
             if self.buffer is not None:
                 token = self.buffer
                 self.buffer = None
                 return token
-            return next(self.gen)
+            if False:
+                while True:
+                    try:
+                        return next(self.gen[-1])
+                    except EOFError:
+                        self.pop()
+                        continue
+                return None
+            return next(self.gen[-1])
 
         def peek(self):
             if self.buffer is None:
-                self.buffer = next(self.gen)
+                self.buffer = next(self.gen[-1])
             return self.buffer
 
         def get_dir(self):
             if isinstance(self.gen, Tokenize_file):
-                return self.gen.parent
+                return self.gen[-1].parent
             return Path(os.getcwd())
+
+        def include(self, new_generator):
+            print(f"include {new_generator}")
+            self.gen.append(new_generator)
+
+        def pop(self):
+            print(f"pop include")
+            if len(self.gen)>1:
+                self.gen.pop()
+            raise ValueError("No further tokenizer")
 
     def parse_stream(token_stream, function_mode = False):
         token = token_stream.next()
@@ -144,16 +164,19 @@ def parse(tokens, program = list(), function_mode=False):
             while token_stream.peek() != ')':
                 lst.append(parse_stream(token_stream))
             _ = token_stream.next()  # ')'
-
-            if len(lst) == 2 and lst[0] == "include":
-                includefile = Path(lst[1])
-                if not includefile.is_absolute():
-                    # relative path: combine with location of include file
-                    includefile = token_stream.get_dir() / includefile
-                if includefile.exists():
-                    new_tokenize_file = Tokenize_file(includefile)
-                    lst = TokenStream(new_tokenize_file(), token_stream)
-            #print(f"close list {lst}")
+            ##breakpoint()
+            ##if len(lst) == 2 and lst[0] == "include":
+            ##    lst = []
+            ##    includefile = Path(lst[1])
+            ##    if not includefile.is_absolute():
+            ##        # relative path: combine with location of include file
+            ##        includefile = token_stream.get_dir() / includefile
+            ##    if includefile.exists():
+            ##        new_tokenize_file = Tokenize_file(includefile)
+            ##        token_stream.include(new_tokenize_file())
+            ##        return parse_stream(token_stream)
+            ##print(f"close list {lst}")
+            ##else:
             return lst
 
         elif token == ')':
@@ -186,7 +209,7 @@ def parse(tokens, program = list(), function_mode=False):
             else:
                 return atom(token)
 
-    #print(f"Parser Mode: {'functionMode' if functionMode else 'S-Expression'}")
+    #print(f"Parser Mode: {'function_mode' if function_mode else 'S-Expression'}")
     stream = TokenStream(tokens)
     try:
         while True:
