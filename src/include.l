@@ -1,11 +1,12 @@
 (print "start")
 
 (defmacro macro-include (filename)
-  `(begin ,@(include filename)
+  `( ,@(mapcar (lambda (x) x) (include filename)
+          )
           )
   )
 
-(print (macroexpand-1 (macro-include "included.l")))
+(print (macroexpand (macro-include "included.l")))
 
 (let ((filename "included.l"))
   (print "including" filename)

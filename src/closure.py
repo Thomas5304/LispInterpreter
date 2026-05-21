@@ -243,7 +243,7 @@ class Macro:
     def __init__(self, proc):
         self.proc = proc
 
-    def expand(self, *raw_args):
+    def expand(self, env, *raw_args):
         #print("Macro.expand 1:", raw_args)
         result = self.proc(*raw_args)
         #print("Macro.expand 2:", result)
@@ -302,7 +302,7 @@ def macroexpand(env, ast, depth=-1):
             #print(f"macroexpand {head} before: {raw_args}\n")
 
             #print(f"macro param: {', '.join(macro.proc.params)} rest: {macro.proc.rest_name} set to {raw_args}\n")
-            ast = macro.expand(*raw_args)
+            ast = macro.expand(env, *raw_args)
             #if isinstance(ast, Env):
             #    raise TypeError("this is a Env")
             #print(f"macroexpand {head}  after: {ast}\n\n")
@@ -559,7 +559,6 @@ def load_and_parse_lisp_file(env, filename):
 
     
 def eval_include(env, filename):
-    breakpoint()
     if isinstance(filename, str):
         pass
     if isinstance(filename, Symbol):
@@ -588,7 +587,7 @@ def eval_lisp(env, expression):
         'defun':         define_function,
         'defun-python':  defun_python,
         'quote':         quote,
-        'quasiquote':    eval_quasiquote,
+        'quasiquote':    quasiquote,#eval_quasiquote,
         'unquote':       unquote,
         'eval':          eval,
         'begin':         begin,
