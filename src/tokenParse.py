@@ -164,19 +164,6 @@ def parse(tokens, program = list(), function_mode=False):
             while token_stream.peek() != ')':
                 lst.append(parse_stream(token_stream))
             _ = token_stream.next()  # ')'
-            ##breakpoint()
-            ##if len(lst) == 2 and lst[0] == "include":
-            ##    lst = []
-            ##    includefile = Path(lst[1])
-            ##    if not includefile.is_absolute():
-            ##        # relative path: combine with location of include file
-            ##        includefile = token_stream.get_dir() / includefile
-            ##    if includefile.exists():
-            ##        new_tokenize_file = Tokenize_file(includefile)
-            ##        token_stream.include(new_tokenize_file())
-            ##        return parse_stream(token_stream)
-            ##print(f"close list {lst}")
-            ##else:
             return lst
 
         elif token == ')':

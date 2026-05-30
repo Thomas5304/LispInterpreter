@@ -318,7 +318,7 @@ def macroexpand(env, ast, depth=-1):
 
 def eval_macroexpand(env, ast):
     return macroexpand(env, ast, depth=-1)
-    
+
 def eval_macroexpand_1(env, ast):
     return macroexpand(env, ast, depth=1)
 
@@ -438,7 +438,7 @@ def quote(env, args):
     return args
 
 def eval_quasiquote(env, expr):
-
+    #print(f"eval_quasiquote({lispSupport.print_lisp_recursive(expr)})")
     # atom
     if not isinstance(expr, (list, tuple)):
         return expr
@@ -557,20 +557,18 @@ def load_and_parse_lisp_file(env, filename):
 
     return run(parsed_lisp, env)
 
-    
-def eval_include(env, filename):
-    if isinstance(filename, str):
-        pass
-    if isinstance(filename, Symbol):
-        filename = str(filename)
 
-    print(f"filename: {filename}")
+def eval_include(env, filename):
+    filename = eval_lisp(env, filename)
+
     filepath = Path(filename).absolute()
     if not filepath.exists():
-        return "nil"
+        print(f"filename: {filepath} does not exist")
+        return False
 
+    print(f"filename: {filepath}")
     parsed_lisp = parse(tokenize_file(filepath), program=list(), function_mode=env.get('function-mode'))
-    return [parsed_lisp]
+    return parsed_lisp
 
 
 def eval(env, args):
@@ -578,31 +576,32 @@ def eval(env, args):
     return eval_lisp(env, value)
 
 
+specialforms = {
+    'if':            ifthenelse,
+    'define':        define,
+    'let':           let,
+    'lambda':        create_lambda,
+    'defun':         define_function,
+    'defun-python':  defun_python,
+    'quote':         quote,
+    'quasiquote':    eval_quasiquote,#eval_quasiquote,
+    'unquote':       unquote,
+    'eval':          eval,
+    'begin':         begin,
+    'set!':          overwrite,
+    'load':          load_and_parse_lisp_file,
+    'defmacro':      defmacro,
+    'while':         while_loop,
+    'print-eval':    print_and_eval,
+    'cond':          eval_cond,
+    'do-list':       eval_dolist,
+    'symbol-name':   symbol_name,
+    'macroexpand-1': eval_macroexpand_1,
+    'macroexpand':   eval_macroexpand,
+    'include':       eval_include,
+}
+
 def eval_lisp(env, expression):
-    specialforms = {
-        'if':            ifthenelse,
-        'define':        define,
-        'let':           let,
-        'lambda':        create_lambda,
-        'defun':         define_function,
-        'defun-python':  defun_python,
-        'quote':         quote,
-        'quasiquote':    quasiquote,#eval_quasiquote,
-        'unquote':       unquote,
-        'eval':          eval,
-        'begin':         begin,
-        'set!':          overwrite,
-        'load':          load_and_parse_lisp_file,
-        'defmacro':      defmacro,
-        'while':         while_loop,
-        'print-eval':    print_and_eval,
-        'cond':          eval_cond,
-        'do-list':       eval_dolist,
-        'symbol-name':   symbol_name,
-        'macroexpand-1': eval_macroexpand_1,
-        'macroexpand':   eval_macroexpand,
-        'include':       eval_include,
-    }
     try:
         if isinstance(expression, Symbol):
             if is_keyword(expression):
@@ -663,7 +662,6 @@ def run(lisp_tree : list[Any], env:Env):
             print(f"{exc}\n in {lispSupport.print_lisp_recursive(e)}")
             #traceback.print_exc()
             raise
-        
+
         if env.get('last-expr!') is not None:
             print(env.get('last-expr!'))
-
