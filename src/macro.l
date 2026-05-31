@@ -138,6 +138,9 @@
 ;  )
 ;
 ;(person (name "Dilling") (vorname '("Thomas" "Heinrich")))
+
+; macros to read display drf
+
 (defun-python handle-define-stipple (name display stipple) createStipple displayDRF)
 (defun-python handle-define-lpp (layer purpose (&optional stippleName)) createLPP displayDRF)
 (defun-python handle-define-layer (layer) createLayer displayDRF)
@@ -197,6 +200,13 @@
             )
     )
   )
+
+
+(defun load-display-drf (displayDRF)
+    (let ((function-mode t))
+        (include displayDRF)
+    )
+)
 
 (print "load display.drf")
 (let ((function-mode t))

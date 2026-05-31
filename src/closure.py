@@ -299,13 +299,15 @@ def macroexpand(env, ast, depth=-1):
 
             raw_args = ast[1:]
 
-            #print(f"macroexpand {head} before: {raw_args}\n")
+            #if head == "macro-include":
+            #    print(f"macroexpand {head} before: {raw_args}\n")
 
             #print(f"macro param: {', '.join(macro.proc.params)} rest: {macro.proc.rest_name} set to {raw_args}\n")
             ast = macro.expand(env, *raw_args)
             #if isinstance(ast, Env):
             #    raise TypeError("this is a Env")
-            #print(f"macroexpand {head}  after: {ast}\n\n")
+            #if head == "macro-include":
+            #    print(f"macroexpand {head}  after: {ast}\n\n")
 
             continue
 
@@ -563,18 +565,20 @@ def eval_include(env, filename):
 
     filepath = Path(filename).absolute()
     if not filepath.exists():
-        print(f"filename: {filepath} does not exist")
-        return False
+        FileExistsError(f"filename: {filepath} does not exist")
 
     print(f"filename: {filepath}")
     parsed_lisp = parse(tokenize_file(filepath), program=list(), function_mode=env.get('function-mode'))
-    return parsed_lisp
+    result = None
+    for expr in parsed_lisp:
+        result = eval_lisp(env, expr)
+    return result
 
 
 def eval(env, args):
     value = eval_lisp(env, args)
-    return eval_lisp(env, value)
-
+    result = eval_lisp(env, value)
+    return result
 
 specialforms = {
     'if':            ifthenelse,
@@ -584,7 +588,7 @@ specialforms = {
     'defun':         define_function,
     'defun-python':  defun_python,
     'quote':         quote,
-    'quasiquote':    eval_quasiquote,#eval_quasiquote,
+    'quasiquote':    eval_quasiquote,
     'unquote':       unquote,
     'eval':          eval,
     'begin':         begin,

@@ -8,7 +8,7 @@
     "label": "debug '/Users/thomas/Projects/LispInterpreter/src/lisp.py'",
     "request": "launch",
     "python": "$ZED_CUSTOM_PYTHON_ACTIVE_ZED_TOOLCHAIN",
-    "args": ["include.l"],
+    "args": ["read-displayDRF.l"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "program": "lisp.py"
   },

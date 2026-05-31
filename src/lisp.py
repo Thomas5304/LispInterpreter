@@ -11,6 +11,7 @@ from pathlib import Path
 import traceback
 import argparse
 
+import displayDRF
 from tokenParse import tokenize, Tokenize_file, tokenize_file, Symbol, atom, is_list, is_symbol, parse
 
 #from displayDRF import printStipple
@@ -159,7 +160,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def lisp_interpreter(args):
+def lisp_interpreter(args, repl = True):
     debug_level = 1
     main_env = closure.Env()
     main_env.init_env()
@@ -182,7 +183,9 @@ def lisp_interpreter(args):
         else:
             print(f"Can't find {lispfile} from here {os.getcwd()}")
 
-
+    if not repl:
+        return
+        
     buffer = ""
     try:
         while True:
@@ -214,7 +217,8 @@ def lisp_interpreter(args):
 
 def main() -> None:
     args = parse_arguments()
-    lisp_interpreter(args)
+    lisp_interpreter(args, repl = False)
+    displayDRF.generate_lyp(sys.stdout)
     
 if __name__ == '__main__':
     main()
