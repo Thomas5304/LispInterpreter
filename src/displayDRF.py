@@ -379,12 +379,9 @@ class UnionFind:
             classes[root].append(element)
         return classes
 
+    
 
-def group_layer_table(layertable):
-    grouped_layer_table = {}
 
-    groups = UnionFind(layertable.all_layername_purposes(), key=lambda x: x.layer)
-    for lpp in layertable.all_layername_purposes()
 
 def generate_lyp(lyphandle, displayName = None):
     #genCustomDitherPatterns(stipples, lyphandle, indent= "", displayName="")
@@ -496,3 +493,10 @@ def generate_lyp(lyphandle, displayName = None):
 
 
     print(lyp, file = lyphandle)
+
+
+def main():
+    pass
+
+if __name__ == "__main__":
+    main()
