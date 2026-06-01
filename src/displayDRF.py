@@ -8,7 +8,7 @@ import functools
 class Layer:
     name: str
 
-        
+
 @dataclass
 class Purpose:
     purpose: str
@@ -18,7 +18,7 @@ def prefix(pf, indent = ""):
         return indent + f"<{pf}>"
     return indent
 
-    
+
 def suffix(sf, indent = ""):
     if sf!="":
         return indent + f"</{sf}>"
@@ -44,13 +44,13 @@ class Stipple:
     display:str
     stippleName: str
     stippleMatrix: list[list[str]]
-            
+
     def __str__(self):
         result = f"Stipple {self.display} {self.stippleName}\n"
         result += print_matrix(self.stippleMatrix)
         return result
 
-        
+
 @dataclass
 class LineStyle:
     display:str
@@ -103,11 +103,11 @@ def createDisplay(displayName):
     displayNames.add(displayName)
     #print(f"displayName: {displayName}")
 
-    
+
 def createStipple(name, display, stipple):
     stipples[name][display] = Stipple(display, name, stipple)
     #print(stipples[name][display])
-    
+
 def createLineStyle(name, display, lineSize, linePattern):
     linestyles[name][display] = LineStyle(display, name, lineSize, linePattern)
     #print(linestyles[name][display])
@@ -176,7 +176,7 @@ def createLPP(lpp_layer, lpp_purpose, stippleName = None):
             print(f"  for displays {', '.join(stipples[stippleName].keys())}")
 
     lpps[lpp] = LPP(lpp_layer, lpp_purpose, stippleName)
-    
+
     return not error
 
 def genCustomDitherPatterns(stipples, filehandle, displayName = None, indent = ""):
@@ -193,7 +193,7 @@ def genCustomDitherPatterns(stipples, filehandle, displayName = None, indent = "
         genCustomDitherPatternsForDisplay(stipple, filehandle, indent)
 
 def genCustomDitherPatternsForDisplay(stipple:Stipple, filehandle, indent=""):
-  
+
     stippleTag = "custom-dither-pattern"
     nameTag = "name"
     orderTag = "order"
@@ -214,7 +214,7 @@ def genCustomLineStyles(linestyles, filehandle, displayName = None, indent = "")
             if not displayName:
                 raise KeyError("No display name")
     for linestyleName, linestylesForName in linestyles.items():
-        linestyle = linestylesForName[displayName]            
+        linestyle = linestylesForName[displayName]
         genCustomLineStylesForDisplay(linestyle, filehandle, indent)
 
 
@@ -229,6 +229,9 @@ def genCustomLineStylesForDisplay(linestyle:LineStyle, filehandle, indent=""):
     print(f"{prefix(orderTag, indent+"  ")}1{suffix(orderTag)}")
     print(f"{suffix(linestyleTag,indent)}", file = filehandle)
 
+def genLayerColor(color:Color, colortag, filehandle, indent=""):
+    colorInHex = f"#{color.red:02X}{color.green:02X}{color.blue:02X}"
+    print(f"{prefix(colortag)}{colorInHex}{suffix(colortag)}")
 
 def genDefinePacket(packet:DisplayPacket, filehandle, indent=""):
     pass
