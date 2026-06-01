@@ -2,7 +2,7 @@
 
 (load "displayDRF-Macros.l")
 
-(load-display-drf "display_mems.drf")
+(load-display-drf use-display-drf)
 
 
-;(exit 0)
+(quit)

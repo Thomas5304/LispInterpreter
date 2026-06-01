@@ -66,6 +66,7 @@ class Env:
         self.set('apply', lispSupport.lisp_apply)
         self.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
         self.set('function', lambda f: f)
+        self.set('quit', lambda : self.overwrite("__.QUIT.__", True))
         #self.set('debug', lambda debug_level=None: set_debug_level(debug_level))
         self.set('last-expr!', None)
         #self.set('symbol-name', symbol_name)

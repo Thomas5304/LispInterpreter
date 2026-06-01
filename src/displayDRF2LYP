@@ -164,17 +164,24 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def lisp_interpreter(args, repl = True):
+def lisp_interpreter(args, repl = True, vars=()):
     debug_level = 1
     main_env = closure.Env()
     main_env.init_env()
     main_env.set("__.QUIT.__", not repl)
+
+    for var in vars:
+        main_env.set(var[0], var[1])
+    
     program = Path(sys.argv[0])
     programpath = program.parent
     programname = program.name
     print(f"{programname} located in {programpath}")
 
-    lispfiles = [programpath / Path("lispfile.lisp")]
+    lispfiles = [programpath / "lispfile.lisp",
+                 programpath / "displayDRF-Macros.l",
+                 programpath / "read-displayDRF.l",
+    ]
     for lf in args.lispfiles:
         lispfiles.append(Path(lf).absolute())
 
@@ -224,17 +231,24 @@ def main() -> None:
     errorstate = False
     args = parse_arguments()
 
-    if not args.displayDRF:
-        print("No display DRF given")
+    if not args.displayDRF or not os.path.exists(args.displayDRF):
+        print("No display DRF given or does not exists")
         errorstate = True
         
-    if not args.layerMap:
-        print("No layermap given")
+    if not args.layerMap or not os.path.exists(args.layerMap):
+        print("No layermap given or does not exists")
         errorstate = True
-        
-    lisp_interpreter(args, repl = True)
-    displayDRF.createLayertable(str(Path("memsprim.layermap").absolute()))
-    displayDRF.generate_lyp(sys.stdout)
+
+    if errorstate:
+        exit(1)
+    lisp_interpreter(args, repl = True, vars = (("use-display-drf", args.displayDRF),) )
+    displayDRF.createLayertable(str(Path(args.layerMap).absolute()))
+
+    lypfilename = Path(args.layerMap).with_suffix(".lyp") # in local dir
+    with open(lypfilename, "w") as lyphandle:
+        displayDRF.generate_lyp(lyphandle, displayName = args.displayName)
+
+    print(f"Lyp file written to {lypfilename.absolute()}")
     
 if __name__ == '__main__':
     main()
