@@ -200,8 +200,8 @@ def genCustomDitherPatternsForDisplay(stipple:Stipple, filehandle, indent=""):
 
     print(f"{prefix(stippleTag,indent)}", file = filehandle)
     print(print_matrix(stipple.stippleMatrix, "pattern", "line", indent=indent+"  "), file = filehandle)
-    print(f"{prefix(nameTag, indent+"  ")}{stipple.stippleName}{suffix(nameTag)}")
-    print(f"{prefix(orderTag, indent+"  ")}1{suffix(orderTag)}")
+    print(f"{prefix(nameTag, indent+'  ')}{stipple.stippleName}{suffix(nameTag)}", file = filehandle)
+    print(f"{prefix(orderTag, indent+'  ')}1{suffix(orderTag)}", file = filehandle)
     print(f"{suffix(stippleTag,indent)}", file = filehandle)
 
 
@@ -225,13 +225,13 @@ def genCustomLineStylesForDisplay(linestyle:LineStyle, filehandle, indent=""):
 
     print(f"{prefix(linestyleTag,indent)}", file = filehandle)
     print(print_pattern_line(linestyle.linePattern, "pattern", indent=indent+"  "), file = filehandle)
-    print(f"{prefix(nameTag, indent+"  ")}{linestyle.lineStyleName}{suffix(nameTag)}")
-    print(f"{prefix(orderTag, indent+"  ")}1{suffix(orderTag)}")
+    print(f"{prefix(nameTag, indent+'  ')}{linestyle.lineStyleName}{suffix(nameTag)}", file = filehandle)
+    print(f"{prefix(orderTag, indent+'  ')}1{suffix(orderTag)}", file = filehandle)
     print(f"{suffix(linestyleTag,indent)}", file = filehandle)
 
 def genLayerColor(color:Color, colortag, filehandle, indent=""):
     colorInHex = f"#{color.red:02X}{color.green:02X}{color.blue:02X}"
-    print(f"{prefix(colortag)}{colorInHex}{suffix(colortag)}")
+    print(f"{prefix(colortag)}{colorInHex}{suffix(colortag)}", file = filehandle)
 
 def genDefinePacket(packet:DisplayPacket, filehandle, indent=""):
     pass
