@@ -158,7 +158,7 @@ def parse_arguments():
     parser.add_argument("lispfiles", nargs="*")
 
     parser.add_argument("--display", dest="displayName", default = "", help="Selected display name")
-    parser.add_argument("-d", "--drf", dest="displayDRF", default = None, help="Use displayDRF file")
+    parser.add_argument("--drf", dest="displayDRF", default = None, help="Use displayDRF file")
     parser.add_argument("-m", "--map", dest="layerMap", default = None, help="Use layermap file")
 
     return parser.parse_args()
@@ -168,7 +168,7 @@ def lisp_interpreter(args, repl = True, vars=()):
     debug_level = 1
     main_env = closure.Env()
     main_env.init_env()
-    main_env.set("__.QUIT.__", not repl)
+    main_env.setglob("__.QUIT.__", not repl)
 
     for var in vars:
         main_env.set(var[0], var[1])
@@ -195,12 +195,9 @@ def lisp_interpreter(args, repl = True, vars=()):
         else:
             print(f"Can't find {lispfile} from here {os.getcwd()}")
 
-    if main_env.get("__.QUIT.__"):
-        return
-        
     buffer = ""
     try:
-        while not main_env.get("__.QUIT.__"):
+        while not main_env.getglob("__.QUIT.__"):
             if buffer == "":
                 prompt = "user> "
             else:
