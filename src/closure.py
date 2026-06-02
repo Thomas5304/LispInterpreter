@@ -66,7 +66,7 @@ class Env:
         self.set('apply', lispSupport.lisp_apply)
         self.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
         self.set('function', lambda f: f)
-        self.set('quit', lambda : self.overwrite("__.QUIT.__", True))
+        self.set('quit', lambda : self.setglob("__.QUIT.__", True))
         #self.set('debug', lambda debug_level=None: set_debug_level(debug_level))
         self.set('last-expr!', None)
         #self.set('symbol-name', symbol_name)
@@ -85,6 +85,17 @@ class Env:
         return self.parent.overwrite(name, value)
 
 
+    def setglob(self, name, value):
+        if self.parent is None:
+            self.set(name, value)
+        else:
+            self.parent.setglob(name, value)
+    
+    def getglob(self, name):
+        if self.parent is None:
+            return self.get(name)
+        return self.parent.getglob(name)
+    
     def empty(self):
         if len(self.data) == 0:
             return True
