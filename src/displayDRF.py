@@ -1,6 +1,6 @@
 import os
 import pathlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from collections import defaultdict
 import functools
 from dillingUtils import Layertable, LayertableParser
@@ -20,7 +20,7 @@ class XMLBuilder:
         indent = "  " * self.level
         self.lines.append(f"{indent}{content}")
 
-    def short(self, tag, content, **attrs):
+    def short(self, tag, content = "", **attrs):
         indent = "  " * self.level
         attr_str = " " + "".join([f' {k}="{v}"' for k, v in attrs.items()])
         if isinstance(content, (int, float)):
@@ -109,6 +109,7 @@ class Stipple:
     display:str
     stippleName: str
     stippleMatrix: list[list[str]]
+    order: int
 
     def __str__(self):
         result = f"Stipple {self.display} {self.stippleName}\n"
@@ -122,6 +123,7 @@ class LineStyle:
     lineStyleName: str
     lineSize: int
     linePattern: list[str]
+    order: int
 
     def __str__(self):
         result = f"LineStyle {self.display} {self.lineStyleName} {self.lineSize}\n"
@@ -166,7 +168,6 @@ lpps={}
 displaypackets = defaultdict(dict)
 
 
-
 def createLayertable(file):
     global layertable
     layertable = Layertable(file)
@@ -174,6 +175,18 @@ def createLayertable(file):
     parser = LayertableParser(layertable)
     parser.read_file()
     #print(layertable)
+    
+def genLPPGroups(layertable):
+    lpp_groups  = defaultdict(list)
+    for lpp in layertable.all_layername_purposes():
+        if lpp.layer in lpp_groups:
+            lpp_groups[lpp.layer].append(lpp)
+        elif lpp.purpose in lpp_groups:
+            lpp_groups[lpp.purpose].append(lpp)
+        else:
+            lpp_groups[lpp.layer].append(lpp)
+    return lpp_groups
+
 
 
 def createDisplay(displayName):
@@ -182,11 +195,11 @@ def createDisplay(displayName):
 
 
 def createStipple(name, display, stipple):
-    stipples[name][display] = Stipple(display, name, stipple)
+    stipples[name][display] = Stipple(display, name, stipple, -1)
     #print(stipples[name][display])
 
 def createLineStyle(name, display, lineSize, linePattern):
-    linestyles[name][display] = LineStyle(display, name, lineSize, linePattern)
+    linestyles[name][display] = LineStyle(display, name, lineSize, linePattern, -1)
     #print(linestyles[name][display])
 
 def createDisplayPacket(name, display, stippleName, lineStyleName, fillColor, outlineColor, fillStyle=None):
@@ -322,63 +335,62 @@ def getKlayoutInternalPattern(pattern):
         return "I1"
     return "I0"
 
-def getKlayoutCustomOrInternalPattern(collection, pattern):
+def getKlayoutCustomPattern(collection, display, pattern):
+    return f"C{collection[pattern][display].order}"
+    
+
+
+def getKlayoutCustomOrInternalPattern(collection, display, pattern):
     try:
-        return f"C{collection[pattern]}"
+        return getKlayoutCustomPattern(collection, display, pattern)
     except KeyError:
         pass
 
-    if pattern == "solid":
-        return "I0"
-    elif pattern == "blank":
-        return "I1"
+    return getKlayoutInternalPattern(pattern)
 
-    return "I0"
+def generate_lpp(lyp, tag, displayName, lpp):
+    def genPacketName(lpp):
+        return f"P_{lpp.layer}_{lpp.purpose}"
 
+    with lyp(tag):
+        # Data
+        
+        
+        lpp_gdsdt = layertable.layerno_datatype_for(lpp)
+        
+        # create
+        lyp.short("name", f"{lpp.layer}_{lpp.purpose} ({lpp_gdsdt.layerno}/{lpp_gdsdt.datatype})")
+        
+        
+        lyp.short("source", f"{lpp_gdsdt.layerno}/{lpp_gdsdt.datatype}")
+        
+        if genPacketName(lpp) not in displaypackets:
+            return
+        if displayName not in displaypackets[genPacketName(lpp)]:
+            return
+        
+        lpp_displaypacket = displaypackets[genPacketName(lpp)][displayName]
+        lpp_fill_color = colors[lpp_displaypacket.fillColor][displayName]
+        lpp_frame_color = colors[lpp_displaypacket.outlineColor][displayName]
+        
+        lyp.short("fill-color", genLayerColor(lpp_fill_color))
+        lyp.short("frame-color", genLayerColor(lpp_frame_color))
+        lyp.short("dither-pattern", getKlayoutCustomOrInternalPattern(stipples,
+                                                                      displayName,
+                                                                      lpp_displaypacket.stippleName if lpp_displaypacket.fillStyle!="X"
+                                                                      else "blank"))
+        lyp.short("line-style", getKlayoutCustomOrInternalPattern(linestyles, displayName, lpp_displaypacket.lineStyleName))
+        
+        
+        lyp.short("width", 1)
+        
+        lyp.short("visible", "true")
+        lyp.short("transparent", "false")
+        lyp.short("marked", "false")
+        lyp.short("xfill", "false" if lpp_displaypacket.fillStyle!="X" else "true")
+        lyp.short("animation", 0)
 
-
-
-class UnionFind:
-    def __init__(self, elements):
-        # Each element is its own parent (its own set)
-        self.parent = {el: el for el in elements}
-        self.rank = {el: 0 for el in elements}
-        self.num_sets = len(elements)
-
-    def find(self, i):
-        # Path compression: make nodes point directly to the root
-        if self.parent[i] == i:
-            return i
-        self.parent[i] = self.find(self.parent[i])
-        return self.parent[i]
-
-    def union(self, i, j):
-        root_i = self.find(i)
-        root_j = self.find(j)
-
-        if root_i != root_j:
-            # Union by rank: attach the smaller tree under the larger tree
-            if self.rank[root_i] < self.rank[root_j]:
-                self.parent[root_i] = root_j
-            elif self.rank[root_i] > self.rank[root_j]:
-                self.parent[root_j] = root_i
-            else:
-                self.parent[root_i] = root_j
-                self.rank[root_j] += 1
-            self.num_sets -= 1
-            return True
-        return False
-
-    def get_equivalence_classes(self):
-        """Returns a dictionary of root: [elements] representing classes."""
-        classes = {}
-        for element in self.parent:
-            root = self.find(element)
-            if root not in classes:
-                classes[root] = []
-            classes[root].append(element)
-        return classes
-
+   
 
 def generate_lyp(lyphandle, displayName = None):
     #genCustomDitherPatterns(stipples, lyphandle, indent= "", displayName="")
@@ -392,19 +404,16 @@ def generate_lyp(lyphandle, displayName = None):
 
     lyp = XMLBuilder()
 
+
     stippleToCMap = {}
-    linestyleToCMap = {}
-
-    def genPacketName(lpp):
-        return f"P_{lpp.layer}_{lpp.purpose}"
-
     stippleCounter = 0
     for stipplename, displaystipples in stipples.items():
         if displayName not in displaystipples:
             continue
         stipple = displaystipples[displayName]
-        stippleToCMap[stipple.stippleName] = stippleCounter
+        stipple.order = stippleCounter
         stippleCounter += 1
+
 
 
     lineStyleCounter = 0
@@ -413,52 +422,40 @@ def generate_lyp(lyphandle, displayName = None):
             #print(f"{displayName} not in {displaylinestyle}")
             continue
         linestyle = displaylinestyle[displayName]
-        linestyleToCMap[linestyle.lineStyleName] = lineStyleCounter
+        linestyle.order = lineStyleCounter
         lineStyleCounter += 1
 
 
     with lyp("layer-properties"):
-        for lpp in layertable.all_layername_purposes():
-            #print(lpp)
-
-
-            with lyp("properties"):
-                # Data
-
-
-                lpp_gdsdt = layertable.layerno_datatype_for(lpp)
-
-                # create
-                lyp.short("name", f"{lpp.layer}_{lpp.purpose} ({lpp_gdsdt.layerno}/{lpp_gdsdt.datatype})")
-
-
-                lyp.short("source", f"{lpp_gdsdt.layerno}/{lpp_gdsdt.datatype}")
-
-                if genPacketName(lpp) not in displaypackets:
-                    continue
-                if displayName not in displaypackets[genPacketName(lpp)]:
-                    continue
-
-                lpp_displaypacket = displaypackets[genPacketName(lpp)][displayName]
-                lpp_fill_color = colors[lpp_displaypacket.fillColor][displayName]
-                lpp_frame_color = colors[lpp_displaypacket.outlineColor][displayName]
-                lpp_linestyle = linestyles[lpp_displaypacket.lineStyleName][displayName]
-
-
-
-                lyp.short("fill-color", genLayerColor(lpp_fill_color))
-                lyp.short("frame-color", genLayerColor(lpp_frame_color))
-                lyp.short("dither-pattern", getKlayoutCustomOrInternalPattern(stippleToCMap, lpp_displaypacket.stippleName))
-                lyp.short("line-style", getKlayoutCustomOrInternalPattern(linestyleToCMap, lpp_linestyle.lineStyleName))
-
-
-                lyp.short("width", lpp_linestyle.lineSize)
-
-                lyp.short("visible", "true")
-                lyp.short("transparent", "false")
-                lyp.short("marked", "false")
-                lyp.short("xfill", "false" if lpp_displaypacket.fillStyle!="X" else "true")
-                lyp.short("animation", 0)
+        grouping = True
+        if grouping:
+            lpp_groups = genLPPGroups(layertable)
+            for groupname, lpp_list in lpp_groups.items():
+                if len(lpp_list) == 1:
+                    generate_lpp(lyp, "properties", displayName, lpp_list[0])
+                else:
+                    with lyp("properties"):
+                        lyp.short("name", groupname)
+                        lyp.short("source")
+                        lyp.short("frame-color")
+                        lyp.short("fill-color")
+                        lyp.short("frame-brightness", 0)
+                        lyp.short("fill-brightness", 0)
+                        lyp.short("dither-pattern")
+                        lyp.short("line-style")
+                        lyp.short("valid", "true")
+                        lyp.short("visible", "true")
+                        lyp.short("transparent", "false")
+                        lyp.short("width")
+                        lyp.short("marked", "false")
+                        lyp.short("xfill", "false")
+                        lyp.short("animation", 0)
+                        lyp.short("expanded", "true")
+                        for lpp in lpp_list:
+                            generate_lpp(lyp, "group-members", displayName, lpp)
+        else:
+            for lpp in layertable.all_layername_purposes():
+                generate_lpp(lyp, "properties", displayName, lpp)
 
         for stipplename, displaystipples in stipples.items():
             if displayName not in displaystipples:
@@ -468,23 +465,20 @@ def generate_lyp(lyphandle, displayName = None):
                 with lyp("pattern"):
                     gen_matrix(stipple.stippleMatrix, lyp, "line")
                     lyp.short("name", stipple.stippleName)
-                    try:
-                        lyp.short("order", stippleToCMap[lpp_displaypacket.stippleName])
-                    except:
-                        pass
+                    lyp.short("order", stipple.order)
+                    
 
         for linestylename, displaylinestyle in linestyles.items():
             if displayName not in displaylinestyle:
                 continue
             linestyle = displaylinestyle[displayName]
             with lyp("custom-line-style"):
-                with lyp("pattern"):
-                    lyp.short("line", print_pattern_line(linestyle.linePattern))
-                    lyp.short("name", linestyle.lineStyleName)
-                    try:
-                        lyp.short("order", linestyleToCMap[lpp_linestyle.lineStyleName])
-                    except KeyError as ke:
-                        print(linestylename, ke)
+                lyp.short("line", print_pattern_line(linestyle.linePattern))
+                lyp.short("name", linestyle.lineStyleName)
+                try:
+                    lyp.short("order", linestyle.order)
+                except KeyError as ke:
+                    print(linestylename, ke)
 
 
 
