@@ -175,7 +175,7 @@ def createLayertable(file):
     parser.read_file()
     #print(layertable)
 
-    
+
 def createDisplay(displayName):
     displayNames.add(displayName)
     #print(f"displayName: {displayName}")
@@ -332,39 +332,39 @@ def getKlayoutCustomOrInternalPattern(collection, pattern):
         return "I0"
     elif pattern == "blank":
         return "I1"
-    
+
     return "I0"
 
 
 
 
 class UnionFind:
-    def __init__(self, elements, key = lambda x: x):
+    def __init__(self, elements):
         # Each element is its own parent (its own set)
-        self.parent = {key(el): el for el in elements}
-        self.rank = {key(el): 0 for el in elements}
+        self.parent = {el: el for el in elements}
+        self.rank = {el: 0 for el in elements}
         self.num_sets = len(elements)
 
     def find(self, i):
         # Path compression: make nodes point directly to the root
-        if self.parent[key(i)] == key(i):
+        if self.parent[i] == i:
             return i
-        self.parent[key(i)] = self.find(self.parent[key(i)])
-        return self.parent[key(i)]
+        self.parent[i] = self.find(self.parent[i])
+        return self.parent[i]
 
     def union(self, i, j):
         root_i = self.find(i)
         root_j = self.find(j)
-        
+
         if root_i != root_j:
             # Union by rank: attach the smaller tree under the larger tree
-            if self.rank[key(root_i)] < self.rank[key(root_j)]:
-                self.parent[key(root_i)] = root_j
-            elif self.rank[key(root_i)] > self.rank[key(root_j)]:
-                self.parent[key(root_j)] = root_i
+            if self.rank[root_i] < self.rank[root_j]:
+                self.parent[root_i] = root_j
+            elif self.rank[root_i] > self.rank[root_j]:
+                self.parent[root_j] = root_i
             else:
-                self.parent[key(root_i)] = root_j
-                self.rank[key(root_j)] += 1
+                self.parent[root_i] = root_j
+                self.rank[root_j] += 1
             self.num_sets -= 1
             return True
         return False
@@ -378,9 +378,6 @@ class UnionFind:
                 classes[root] = []
             classes[root].append(element)
         return classes
-
-    
-
 
 
 def generate_lyp(lyphandle, displayName = None):
@@ -397,7 +394,7 @@ def generate_lyp(lyphandle, displayName = None):
 
     stippleToCMap = {}
     linestyleToCMap = {}
-    
+
     def genPacketName(lpp):
         return f"P_{lpp.layer}_{lpp.purpose}"
 
@@ -409,7 +406,7 @@ def generate_lyp(lyphandle, displayName = None):
         stippleToCMap[stipple.stippleName] = stippleCounter
         stippleCounter += 1
 
-        
+
     lineStyleCounter = 0
     for linestylename, displaylinestyle in linestyles.items():
         if displayName not in displaylinestyle:
@@ -419,42 +416,42 @@ def generate_lyp(lyphandle, displayName = None):
         linestyleToCMap[linestyle.lineStyleName] = lineStyleCounter
         lineStyleCounter += 1
 
-        
+
     with lyp("layer-properties"):
         for lpp in layertable.all_layername_purposes():
             #print(lpp)
-            
-            
+
+
             with lyp("properties"):
                 # Data
 
-                
+
                 lpp_gdsdt = layertable.layerno_datatype_for(lpp)
 
                 # create
                 lyp.short("name", f"{lpp.layer}_{lpp.purpose} ({lpp_gdsdt.layerno}/{lpp_gdsdt.datatype})")
 
-                
+
                 lyp.short("source", f"{lpp_gdsdt.layerno}/{lpp_gdsdt.datatype}")
 
                 if genPacketName(lpp) not in displaypackets:
                     continue
                 if displayName not in displaypackets[genPacketName(lpp)]:
                     continue
-                
+
                 lpp_displaypacket = displaypackets[genPacketName(lpp)][displayName]
                 lpp_fill_color = colors[lpp_displaypacket.fillColor][displayName]
                 lpp_frame_color = colors[lpp_displaypacket.outlineColor][displayName]
                 lpp_linestyle = linestyles[lpp_displaypacket.lineStyleName][displayName]
 
 
-                
+
                 lyp.short("fill-color", genLayerColor(lpp_fill_color))
                 lyp.short("frame-color", genLayerColor(lpp_frame_color))
                 lyp.short("dither-pattern", getKlayoutCustomOrInternalPattern(stippleToCMap, lpp_displaypacket.stippleName))
                 lyp.short("line-style", getKlayoutCustomOrInternalPattern(linestyleToCMap, lpp_linestyle.lineStyleName))
-                
-                    
+
+
                 lyp.short("width", lpp_linestyle.lineSize)
 
                 lyp.short("visible", "true")
@@ -488,8 +485,8 @@ def generate_lyp(lyphandle, displayName = None):
                         lyp.short("order", linestyleToCMap[lpp_linestyle.lineStyleName])
                     except KeyError as ke:
                         print(linestylename, ke)
-                        
-                    
+
+
 
 
     print(lyp, file = lyphandle)
