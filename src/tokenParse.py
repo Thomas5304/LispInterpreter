@@ -190,7 +190,7 @@ def parse(tokens, program = list(), function_mode=False):
                 #print(f"parser in function mode: correcting {token}(")
                 _ = token_stream.next() # consume (
                 while token_stream.peek() != ')':
-                    lst.append(parse_stream(token_stream))
+                    lst.append(parse_stream(token_stream, function_mode))
                 _ = token_stream.next()  # ')'
                 return (lst)
             else:
