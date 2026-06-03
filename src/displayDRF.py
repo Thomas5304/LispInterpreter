@@ -211,6 +211,21 @@ def createDisplayPacket(name, display, stippleName, lineStyleName, fillColor, ou
                                                   outlineColor = outlineColor,
                                                   fillStyle = fillStyle)
 
+@dataclass
+class TechDisplay:
+    layerName: str
+    purposeName: str
+    packet: str
+    vis: bool
+    sel: bool
+    con2ChgLy: bool
+    drgEnbl: bool
+    valid: bool
+    
+techdisplays = {}
+def createTechDisplays(layerName, purposeName,  packet,  vis, sel,   con2ChgLy,   drgEnbl,  valid):
+    techdisplays[(layerName, purposeName)] = TechDisplay(layerName, purposeName,  packet,  vis, sel,   con2ChgLy,   drgEnbl,  valid)
+    
 def getDisplayPacket(name, display):
     return displaypackets[name][display]
 
@@ -301,6 +316,11 @@ def getKlayoutCustomOrInternalPattern(collection, display, pattern):
 
 def generate_lpp(lyp, tag, displayName, lpp):
     def genPacketName(lpp):
+        try:
+            return techdisplays[(lpp.layer, lpp.purpose)].packet
+        except KeyError:
+            pass
+        
         return f"P_{lpp.layer}_{lpp.purpose}"
 
     with lyp(tag):
