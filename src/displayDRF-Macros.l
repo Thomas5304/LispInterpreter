@@ -125,20 +125,20 @@
 ;;;  "Macro zum Parsen des Control-Blocks in einer .tf Datei."
 ;;;  `(let ((results (make-hash-table)))
 ;;;     (macrolet (
-;;;         ;; Unter-Makro für viewTypeUnits
+;;;         ;; Unter-Makro fï¿½r viewTypeUnits
 ;;;         (viewTypeUnits (&rest units)
 ;;;           `(let ((mask-entry (assoc 'maskLayout ',units)))
 ;;;              (when mask-entry
 ;;;                (setf (gethash 'dbu results) (/ 1.0 (third mask-entry)))
 ;;;                (setf (gethash 'unit results) (second mask-entry)))))
 ;;;         
-;;;         ;; Unter-Makro für mfgGridResolution
+;;;         ;; Unter-Makro fï¿½r mfgGridResolution
 ;;;         (mfgGridResolution (grid-list)
 ;;;           `(setf (gethash 'grid results) (caar ',grid-list)))
 ;;;       )
-;;;       ;; Führe den Inhalt des controls-Blocks aus
+;;;       ;; Fï¿½hre den Inhalt des controls-Blocks aus
 ;;;       ,@body
-;;;       ;; Gib die gesammelten Ergebnisse zurück
+;;;       ;; Gib die gesammelten Ergebnisse zurï¿½ck
 ;;;       (list :dbu (gethash 'dbu results)
 ;;;             :unit (gethash 'unit results)
 ;;;             :grid (gethash 'grid results))))
@@ -161,7 +161,7 @@
                           )
                 
                 )
-       ;; Führe den Inhalt des controls-Blocks aus
+       ;; Fï¿½hre den Inhalt des controls-Blocks aus
        ,@body
        (print "techID" techid-name techid-version techid-revision)
 
@@ -171,13 +171,13 @@
      )
   )
 
-(defun handle-define-control_viewTypeUnits (name unitname units) (print name "user unit" unitname "DBUPerUU" units))
-(defun handle-define-control_mfgGridResolution (grid) (print "mfgGridResolution" grid))
+(defun handle-define-control_viewTypeUnits (name unitname units) 0);(print name "user unit" unitname "DBUPerUU" units))
+(defun handle-define-control_mfgGridResolution (grid) 0);(print "mfgGridResolution" grid))
     
 (defmacro controls (&rest body)
   `(let ()
      (macrolet (
-                ;; Unter-Makro für viewTypeUnits
+                ;; Unter-Makro fï¿½r viewTypeUnits
                 (viewTypeUnits (&rest units)
                                `(mapcar (lambda (unit)
                                           (handle-define-control_viewTypeUnits (nth 0 unit) (nth 1 unit) (nth 2 unit))
@@ -189,7 +189,7 @@
                                ;                              (c (nth 2 unit)))  (print a c b))) ',units)
                                )
                 
-                ;; Unter-Makro für mfgGridResolution
+                ;; Unter-Makro fï¿½r mfgGridResolution
                 (mfgGridResolution (grid-list)
                                    `(handle-define-control_mfgGridResolution ,@grid-list)
                                    )
@@ -207,7 +207,7 @@
                 (leMPPEnclosedPath (&rest params) `(mapcar (lambda (x) x) ',params))
                 (leMPPSubRect      (&rest params) `(mapcar (lambda (x) x) ',params))
                 )
-       ;; Führe den Inhalt des controls-Blocks aus
+       ;; Fï¿½hre den Inhalt des controls-Blocks aus
        ,@body
        )
      "controls"
@@ -216,28 +216,41 @@
 
 
 ;; ignore macros
-(defmacro ignore (&rest to-ignore)
-  `(begin ,@(mapcar (lambda (name) `(defmacro ,name (&rest params) '(list 0))) to-ignore))
-  )
-
-(print "keywords to ignore" keyword-to-ignore)
-(mapcar ignore keyword-to-ignore)
+(print "keywords to ignore" keywords-to-ignore)
+;(defmacro ignore (keywords) 
+;  `(dolist (func keywords) (eval (defmacro ,func (&rest params) nil))))
+;(print (macroexpand 3 (ignore keywords-to-ignore)))
+;(ignore keywords-to-ignore)
+;(defmacro define-ignore-macros (&rest names)
+;  `(progn
+;     ,@(mapcar
+;        (lambda (name)
+;          `(defmacro ,name (&rest args)
+;            nil))
+;        names)))
+(do-list (name keywords-to-ignore)
+  (eval
+   `(defmacro ,name (&rest args)
+      nil)))
+;(print (macroexpand 3 (define-ignore-macros viaDefs constraintGroups)))
+;(define-ignore-macros viaDefs constraintGroups)
 ;(ignore viaDefs constraintGroups)
 ;(defmacro viaDefs (&rest params) '(list 0))
 ;(defmacro constraintGroups (&rest params) '(list 0))
+;
 
 (defun handle-define-layerDefinitions_techPurposes (purposeName purposeNum abbreviation) 0)
 (defun handle-define-layerDefinitions_techLayers (layerName layerNum abbreviation) 0)
-(defun handle-define-layerDefinitions_techLayerPurposePriorities (layerName purposeName) (print "prio" layerName purposeName))
+(defun handle-define-layerDefinitions_techLayerPurposePriorities (layerName purposeName) 0);(print "prio" layerName purposeName))
 (defun handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid)
-  (print "techDisplays" layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid))
+  0);(print "techDisplays" layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid))
 (defun-python handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid)
   createTechDisplays displayDRF)
 
 (defmacro layerDefinitions (&rest body)
   `(let ()
      (macrolet (
-                ;; Unter-Makro für viewTypeUnits
+                ;; Unter-Makro fï¿½r viewTypeUnits
                 (techPurposes (&rest purposes)
                               `(mapcar
                                 (lambda (purpose)
@@ -245,7 +258,7 @@
                                   )
                                  ',purposes))
                 
-                ;; Unter-Makro für techLayers
+                ;; Unter-Makro fï¿½r techLayers
                 (techLayers (&rest layers)
                             `(mapcar
                                 (lambda (layer)
@@ -253,7 +266,7 @@
                                   )
                                  ',layers))
 
-                ;; Unter-Makro für techLayerPurposePriorities
+                ;; Unter-Makro fï¿½r techLayerPurposePriorities
                 (techLayerPurposePriorities (&rest prios)
                             `(mapcar
                                 (lambda (prio)
@@ -261,7 +274,7 @@
                                   )
                                  ',prios))
                 
-                ;; Unter-Makro für techDisplays
+                ;; Unter-Makro fï¿½r techDisplays
                 (techDisplays (&rest displays)
                               `(mapcar
                                 (lambda (display)
@@ -270,7 +283,7 @@
                                 )
                                 ',displays))
                 )
-       ;; Führe den Inhalt des controls-Blocks aus
+       ;; Fï¿½hre den Inhalt des controls-Blocks aus
        ,@body
        )
      "layerDefinitions"
@@ -279,14 +292,14 @@
 
 
 
-(defun handle-define-layerRules_functions (layer     function     maskNumber ) (print "layerrules functions " layer function maskNumber))
-(defun handle-define-layerRules_mfgResolutions (layer         mfgResolution ) (print "mfgGridResolution" layer         mfgResolution))
+(defun handle-define-layerRules_functions (layer     function     maskNumber ) 0);(print "layerrules functions " layer function maskNumber))
+(defun handle-define-layerRules_mfgResolutions (layer         mfgResolution ) 0);(print "mfgGridResolution" layer         mfgResolution))
     
 
 (defmacro layerRules (&rest body)
   `(let ()
      (macrolet (
-                ;; Unter-Makro für functions
+                ;; Unter-Makro fï¿½r functions
                 (functions (&rest functions)
                                `(mapcar
                                   (lambda (function)
@@ -294,7 +307,7 @@
                                     )
                                   ',functions))
                 
-                ;; Unter-Makro für mfgResolutions
+                ;; Unter-Makro fï¿½r mfgResolutions
                 (mfgResolutions (&rest resolutions)
                                 `(mapcar
                                   (lambda (resolution)
@@ -303,7 +316,7 @@
                                   ',resolutions))
                 )
                 
-       ;; Führe den Inhalt des controls-Blocks aus
+       ;; Fï¿½hre den Inhalt des controls-Blocks aus
        ,@body
        )
      "layerRules"
