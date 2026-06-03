@@ -163,6 +163,8 @@ def parse_arguments():
     parser.add_argument("-t", "--techfile", dest="techfile", default = None, help="Use techfile (*.tf)")
     parser.add_argument("-r", "--repl", dest="continue_repl", action="store_true", default = False, help="Continue with REPL")
 
+    parser.add_argument("--ignore", dest="ignore_keywords", action="append", help="Keywords to ignore")
+
     return parser.parse_args()
 
 
@@ -248,6 +250,7 @@ def main() -> None:
     lisp_interpreter(args, repl = args.continue_repl, vars = (
         ("use-display-drf", args.displayDRF),
         ("use-techfile-tf", args.techfile),
+        ("keyword-to-ignore", args.ignore_keywords),
         )
     )
     displayDRF.createLayertable(str(Path(args.layerMap).absolute()))
