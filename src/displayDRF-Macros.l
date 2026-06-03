@@ -2,22 +2,17 @@
 
 
 ;interfaces to python
-(defun-python handle-define-stipple (name display stipple) createStipple displayDRF)
-(defun-python handle-define-linestyle (name display size pattern) createLineStyle displayDRF)
-(defun-python handle-define-displayName (name) createDisplay displayDRF)
-(defun-python handle-define-color (name display red green blue) createColor displayDRF)
-(defun-python handle-define-displaypacket (name display stippleName lineStyleName fillColor outlineColor fillStyle) createDisplayPacket displayDRF)
 
 
 (defun-python handle-define-layer (layer) createLayer displayDRF)
 (defun-python handle-define-purpose (purpose) createPurpose displayDRF)
-
 
 (defmacro ignore (&rest clauses)
     0
 )
 
 
+(defun-python handle-define-displayName (name) createDisplay displayDRF)
 (defmacro drDefineDisplay (&rest displays)
     `(begin ,@(mapcar ,(lambda (display)
                             (let ((displayName (car display)))
@@ -30,6 +25,7 @@
 )
 
 
+(defun-python handle-define-linestyle (name display size pattern) createLineStyle displayDRF)
 (defmacro drDefineLineStyle (&rest linestyles)
     `(begin ,@(mapcar ,(lambda (linestyle)
                             (let ((display (nth 0 linestyle))
@@ -46,6 +42,7 @@
     )
 )
 
+(defun-python handle-define-displaypacket (name display stippleName lineStyleName fillColor outlineColor fillStyle) createDisplayPacket displayDRF)
 (defmacro drDefinePacket (&rest packets)
     `(begin ,@(mapcar ,(lambda (packet)
                             (let (
@@ -66,6 +63,7 @@
         )
 )
 
+(defun-python handle-define-stipple (name display stipple) createStipple displayDRF)
 (defmacro drDefineStipple (&rest clauses)
   `(begin ,@(mapcar ,(lambda (clause)
                        (let ((DisplayName (nth 0 clause))
@@ -79,6 +77,7 @@
           )
   )
 
+(defun-python handle-define-color (name display red green blue) createColor displayDRF)
 (defmacro drDefineColor (&rest colors)
     `(begin ,@(mapcar ,(lambda (color)
                             (let ((display (nth 0 color))
@@ -145,15 +144,43 @@
 ;;;             :grid (gethash 'grid results))))
 ;;;
 
+(defmacro techId (&rest body)
+  `(let ((techid-name nil)
+         (techid-version nil)
+         (techid-revision nil))
+     (macrolet (
+                (name (parameter)
+                      `(set! techid-name parameter)
+                      )
+                (version (parameter)
+                         `(set! techid-name parameter)
+                         )
+                
+                (revision (parameter)
+                          `(set! techid-name parameter)
+                          )
+                
+                )
+       ;; Führe den Inhalt des controls-Blocks aus
+       ,@body
+       (print "techID" techid-name techid-version techid-revision)
+
+        )
+       
+     "techId"
+     )
+  )
+
+(defun handle-define-control_viewTypeUnits (name unitname units) (print name "user unit" unitname "DBUPerUU" units))
+(defun handle-define-control_mfgGridResolution (grid) (print "mfgGridResolution" grid))
+    
 (defmacro controls (&rest body)
   `(let ()
      (macrolet (
                 ;; Unter-Makro für viewTypeUnits
                 (viewTypeUnits (&rest units)
                                `(mapcar (lambda (unit)
-                                          (when (== (nth 0 unit) "maskLayout")
-                                            (print "masklayout " (nth 2 unit) (nth 1 unit))
-                                            )
+                                          (handle-define-control_viewTypeUnits (nth 0 unit) (nth 1 unit) (nth 2 unit))
                                           )
                                         ',units
                                         )
@@ -164,57 +191,115 @@
                 
                 ;; Unter-Makro für mfgGridResolution
                 (mfgGridResolution (grid-list)
-                                   `(print ,@grid-list)
+                                   `(handle-define-control_mfgGridResolution ,@grid-list)
                                    )
+                (techParams (&rest params)
+                                   `(mapcar (lambda (param)
+                                          (print param)
+                                          )
+                                        ',params
+                                        )
+                                   )
+                (leMPPControls     (&rest params) `(mapcar (lambda (x) x) ',params))
+                (leMPPDefinition   (&rest params) `(mapcar (lambda (x) x) ',params))
+                (leMPPRingObject   (&rest params) `(mapcar (lambda (x) x) ',params))
+                (leMPPMasterPath   (&rest params) `(mapcar (lambda (x) x) ',params))
+                (leMPPEnclosedPath (&rest params) `(mapcar (lambda (x) x) ',params))
+                (leMPPSubRect      (&rest params) `(mapcar (lambda (x) x) ',params))
                 )
        ;; Führe den Inhalt des controls-Blocks aus
        ,@body
        )
+     "controls"
      )
   )
+
+
+;; ignore macros
+(defmacro viaDefs (&rest params) '(list 0))
+(defmacro constraintGroups (&rest params) '(list 0))
+
+(defun handle-define-layerDefinitions_techPurposes (purposeName purposeNum abbreviation) 0)
+(defun handle-define-layerDefinitions_techLayers (layerName layerNum abbreviation) 0)
+(defun handle-define-layerDefinitions_techLayerPurposePriorities (layerName purposeName) (print "prio" layerName purposeName))
+(defun handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid)
+  (print "techDisplays" layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid))
+(defun-python handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid)
+  createTechDisplays displayDRF)
 
 (defmacro layerDefinitions (&rest body)
   `(let ()
      (macrolet (
                 ;; Unter-Makro für viewTypeUnits
-                (techPurposes (&rest params)
-                               `(print ',params))
+                (techPurposes (&rest purposes)
+                              `(mapcar
+                                (lambda (purpose)
+                                  (handle-define-layerDefinitions_techPurposes (nth 0 purpose) (nth 1 purpose) (nth 2 purpose))
+                                  )
+                                 ',purposes))
                 
                 ;; Unter-Makro für techLayers
-                (techLayers (&rest params)
-                            `(print ',params))
+                (techLayers (&rest layers)
+                            `(mapcar
+                                (lambda (layer)
+                                  (handle-define-layerDefinitions_techLayers (nth 0 layer) (nth 1 layer) (nth 2 layer))
+                                  )
+                                 ',layers))
 
                 ;; Unter-Makro für techLayerPurposePriorities
-                (techLayerPurposePriorities (&rest params)
-                            `(print ',params))
+                (techLayerPurposePriorities (&rest prios)
+                            `(mapcar
+                                (lambda (prio)
+                                  (handle-define-layerDefinitions_techLayerPurposePriorities (nth 0 prio) (nth 1 prio))
+                                  )
+                                 ',prios))
                 
                 ;; Unter-Makro für techDisplays
-                (techDisplays (&rest params)
-                            `(print ',params))
+                (techDisplays (&rest displays)
+                              `(mapcar
+                                (lambda (display)
+                                  (handle-define-layerDefinitions_techDisplays  (nth 0 display) (nth 1 display) (nth 2 display) (nth 3 display)
+                                                                                (nth 4 display) (nth 5 display) (nth 6 display) (nth 8 display))
+                                )
+                                ',displays))
                 )
-                
        ;; Führe den Inhalt des controls-Blocks aus
        ,@body
        )
+     "layerDefinitions"
      )
   )
 
+
+
+(defun handle-define-layerRules_functions (layer     function     maskNumber ) (print "layerrules functions " layer function maskNumber))
+(defun handle-define-layerRules_mfgResolutions (layer         mfgResolution ) (print "mfgGridResolution" layer         mfgResolution))
+    
 
 (defmacro layerRules (&rest body)
   `(let ()
      (macrolet (
                 ;; Unter-Makro für functions
-                (functions (&rest params)
-                               `(print ',params))
+                (functions (&rest functions)
+                               `(mapcar
+                                  (lambda (function)
+                                    (handle-define-layerRules_functions (nth 0 function) (nth 1 function) (if (>= (length function) 3) (nth 2 function) nil))
+                                    )
+                                  ',functions))
                 
                 ;; Unter-Makro für mfgResolutions
-                (mfgResolutions (&rest params)
-                            `(print ',params))
+                (mfgResolutions (&rest resolutions)
+                                `(mapcar
+                                  (lambda (resolution)
+                                    (handle-define-layerRules_mfgResolutions (nth 0 resolution) (nth 1 resolution))
+                                    )
+                                  ',resolutions))
                 )
                 
        ;; Führe den Inhalt des controls-Blocks aus
        ,@body
        )
+     "layerRules"
      )
   )
 
