@@ -162,3 +162,9 @@
         (include displayDRF)
     )
 )
+
+(defun load-techfile-tf (techfile-tf)
+    (let ((function-mode t))
+        (include techfile-tf)
+    )
+)
