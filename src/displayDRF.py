@@ -271,55 +271,6 @@ def createLPP(lpp_layer, lpp_purpose, stippleName = None):
 
     return not error
 
-def genCustomDitherPatterns(stipples, filehandle, displayName = None, indent = ""):
-    """print all stipples in custom-dither-pattern"""
-
-    if not displayName:
-        if len(displayNames)==1:
-            displayName = list(displayNames)[0]
-    if not displayName:
-        raise KeyError("No display name")
-
-    for stippleName, stipplesForName in stipples.items():
-        stipple = stipplesForName[displayName]
-        genCustomDitherPatternsForDisplay(stipple, filehandle, indent)
-
-def genCustomDitherPatternsForDisplay(stipple:Stipple, filehandle, indent=""):
-
-    stippleTag = "custom-dither-pattern"
-    nameTag = "name"
-    orderTag = "order"
-
-    print(f"{prefix(stippleTag,indent)}", file = filehandle)
-    print(print_matrix(stipple.stippleMatrix, "pattern", "line", indent=indent+"  "), file = filehandle)
-    print(f"{prefix(nameTag, indent+'  ')}{stipple.stippleName}{suffix(nameTag)}", file = filehandle)
-    print(f"{prefix(orderTag, indent+'  ')}1{suffix(orderTag)}", file = filehandle)
-    print(f"{suffix(stippleTag,indent)}", file = filehandle)
-
-
-def genCustomLineStyles(linestyles, filehandle, displayName = None, indent = ""):
-    """print all linestyles in custom-line-styles"""
-
-    if not displayName:
-        if len(displayNames)==1:
-            displayName = list(displayNames)[0]
-            if not displayName:
-                raise KeyError("No display name")
-    for linestyleName, linestylesForName in linestyles.items():
-        linestyle = linestylesForName[displayName]
-        genCustomLineStylesForDisplay(linestyle, filehandle, indent)
-
-
-def genCustomLineStylesForDisplay(linestyle:LineStyle, filehandle, indent=""):
-    linestyleTag = "custom-line-style"
-    nameTag = "name"
-    orderTag = "order"
-
-    print(f"{prefix(linestyleTag,indent)}", file = filehandle)
-    print(print_pattern_line_with_tag(linestyle.linePattern, "pattern", indent=indent+"  "), file = filehandle)
-    print(f"{prefix(nameTag, indent+'  ')}{linestyle.lineStyleName}{suffix(nameTag)}", file = filehandle)
-    print(f"{prefix(orderTag, indent+'  ')}1{suffix(orderTag)}", file = filehandle)
-    print(f"{suffix(linestyleTag,indent)}", file = filehandle)
 
 def genLayerColor(color:Color):
     return f"#{color.red:02X}{color.green:02X}{color.blue:02X}"
@@ -393,8 +344,6 @@ def generate_lpp(lyp, tag, displayName, lpp):
    
 
 def generate_lyp(lyphandle, displayName = None):
-    #genCustomDitherPatterns(stipples, lyphandle, indent= "", displayName="")
-    #genCustomLineStyles(linestyles, lyphandle, indent= "", displayName="")
 
     if not displayName:
         if len(displayNames)==1:
