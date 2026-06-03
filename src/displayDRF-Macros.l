@@ -30,23 +30,6 @@
     )
 )
 
-(defmacro drDefineColor (&rest colors)
-    `(begin ,@(mapcar ,(lambda (color)
-                            (let ((DisplayName (nth 0 color))
-                                    (ColorName (nth 1 color))
-                                    (Red (nth 2 color))
-                                    (Green (nth 3 color))
-                                    (Blue (nth 4 color))
-                                )
-                                ;(print "Color for display "  DisplayName " -> " ColorName "  (" Red Green Blue ")" )
-                                0
-                            )
-                        )
-                    colors
-                )
-    )
-)
-
 
 (defmacro drDefineLineStyle (&rest linestyles)
     `(begin ,@(mapcar ,(lambda (linestyle)
@@ -156,6 +139,24 @@
     )
   )
 
+;(defmacro viewTypeUnits (&rest type-units)
+;  `(list ,@(mapcar ,(lambda (type-unit)
+;                       (let (
+;                          (viewType   (nth 0 type-unit))
+;                          (userUnit   (nth 1 type-unit))
+;                          (DBUPerUU   (nth 2 type-unit))
+;                            )
+;
+;                            0
+;                        )
+;                      )
+;                      type-units
+;            )
+;    ))
+
+(defmacro viewTypeUnits (&rest type-units)
+  `(ignore type-units)
+)
 
 (defun load-display-drf (displayDRF)
     (let ((function-mode t))
