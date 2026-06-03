@@ -216,8 +216,15 @@
 
 
 ;; ignore macros
-(defmacro viaDefs (&rest params) '(list 0))
-(defmacro constraintGroups (&rest params) '(list 0))
+(defmacro ignore (&rest to-ignore)
+  `(begin ,@(mapcar (lambda (name) `(defmacro ,name (&rest params) '(list 0))) to-ignore))
+  )
+
+(print "keywords to ignore" keyword-to-ignore)
+(mapcar ignore keyword-to-ignore)
+;(ignore viaDefs constraintGroups)
+;(defmacro viaDefs (&rest params) '(list 0))
+;(defmacro constraintGroups (&rest params) '(list 0))
 
 (defun handle-define-layerDefinitions_techPurposes (purposeName purposeNum abbreviation) 0)
 (defun handle-define-layerDefinitions_techLayers (layerName layerNum abbreviation) 0)
