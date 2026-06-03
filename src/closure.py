@@ -29,7 +29,7 @@ class Env:
         raise NameError(f"unbound symbol: {name}")
 
 
-    
+
     def setmacro(self, name, value):
         self.macros[name] = value
 
@@ -48,7 +48,7 @@ class Env:
         return None
 
 
-    
+
     def setfunction(self, name, value):
         self.functions[name] = value
 
@@ -66,7 +66,7 @@ class Env:
         #no error, just not defined!
         return None
 
-    
+
     def init_env(self, debug_level=0):
         self.debug_level = debug_level
         self.set('nil', False)
@@ -131,12 +131,12 @@ class Env:
             self.set(name, value)
         else:
             self.parent.setglob(name, value)
-    
+
     def getglob(self, name):
         if self.parent is None:
             return self.get(name)
         return self.parent.getglob(name)
-    
+
     def empty(self):
         if len(self.data) == 0:
             return True
@@ -342,7 +342,7 @@ def macroexpand(env, ast, depth=-1):
             break
         elif depth > 0:
             depth = depth - 1
-            
+
         head = ast[0]
         val = None
         try:
@@ -379,6 +379,7 @@ def eval_dolist(env, spec, *body):
     list_expr = spec[1]
 
     values:list = eval_lisp(env, list_expr)
+    #breakpoint()
 
     result = None
 
@@ -443,7 +444,7 @@ def while_loop(env, cond_expr, *body_exprs):
 
 def defmacro(env, name, params, body):
     proc = FunctionDef(env, params, body)
-    env.set(name, Macro(proc))
+    env.setglob(name, Macro(proc))
 
 def macrolet(env, macros, *expressions):
     # create new environment for local macro defs
@@ -451,8 +452,10 @@ def macrolet(env, macros, *expressions):
     env = Env(env)
 
     for macro in macros:
-        defmacro(env, *macro)
-        
+        name, params, body = macro
+        proc = FunctionDef(env, params, body)
+        env.set(name, Macro(proc))
+
     ret = None
 
     for expression in expressions:
@@ -655,6 +658,7 @@ def eval(env, args):
 specialforms = {
     'if':            ifthenelse,
     'define':        define,
+    'setq':          define,
     'let':           let,
     'lambda':        create_lambda,
     'defun':         define_function,
@@ -672,6 +676,7 @@ specialforms = {
     'print-eval':    print_and_eval,
     'cond':          eval_cond,
     'do-list':       eval_dolist,
+    'dolist':        eval_dolist,
     'symbol-name':   symbol_name,
     'macroexpand-1': eval_macroexpand_1,
     'macroexpand':   eval_macroexpand,
@@ -680,6 +685,8 @@ specialforms = {
 
 def eval_lisp(env, expression):
     try:
+        if expression is None:
+            return None
         if isinstance(expression, Symbol):
             if is_keyword(expression):
                 return expression
@@ -694,7 +701,11 @@ def eval_lisp(env, expression):
         if not isinstance(expression, (list, tuple)):
             raise ValueError(f"invalid value {expression}")
 
+        #keep_expression = expression
         expression = macroexpand(env, expression)
+        if expression is None:
+            #breakpoint()
+            return None
 
         function = expression[0]
         args = expression[1:]
@@ -730,7 +741,11 @@ def eval_lisp(env, expression):
 def run(lisp_tree : list[Any], env:Env):
     for e in lisp_tree:
         try:
-            env.set('last-expr!', eval_lisp(env, e))
+            if e is not None:
+                result = eval_lisp(env, e)
+                env.set('last-expr!', result)
+            else:
+                env.set('last-expr!', None)
         except ValueError as ve:
             print(f"{ve}\n in {lispSupport.print_lisp_recursive(e)}")
             #traceback.print_exc()

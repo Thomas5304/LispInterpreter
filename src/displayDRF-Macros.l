@@ -150,14 +150,14 @@
          (techid-revision nil))
      (macrolet (
                 (name (parameter)
-                      `(set! techid-name parameter)
+                      `(setq techid-name ,parameter)
                       )
                 (version (parameter)
-                         `(set! techid-name parameter)
+                         `(setq techid-version ,parameter)
                          )
                 
                 (revision (parameter)
-                          `(set! techid-name parameter)
+                          `(setq techid-revision ,parameter)
                           )
                 
                 )
@@ -216,28 +216,12 @@
 
 
 ;; ignore macros
-(print "keywords to ignore" keywords-to-ignore)
-;(defmacro ignore (keywords) 
-;  `(dolist (func keywords) (eval (defmacro ,func (&rest params) nil))))
-;(print (macroexpand 3 (ignore keywords-to-ignore)))
-;(ignore keywords-to-ignore)
-;(defmacro define-ignore-macros (&rest names)
-;  `(progn
-;     ,@(mapcar
-;        (lambda (name)
-;          `(defmacro ,name (&rest args)
-;            nil))
-;        names)))
+;(print "keywords to ignore" keywords-to-ignore)
 (do-list (name keywords-to-ignore)
   (eval
    `(defmacro ,name (&rest args)
       nil)))
-;(print (macroexpand 3 (define-ignore-macros viaDefs constraintGroups)))
-;(define-ignore-macros viaDefs constraintGroups)
-;(ignore viaDefs constraintGroups)
-;(defmacro viaDefs (&rest params) '(list 0))
-;(defmacro constraintGroups (&rest params) '(list 0))
-;
+
 
 (defun handle-define-layerDefinitions_techPurposes (purposeName purposeNum abbreviation) 0)
 (defun handle-define-layerDefinitions_techLayers (layerName layerNum abbreviation) 0)

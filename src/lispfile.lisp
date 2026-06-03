@@ -49,3 +49,5 @@
        )
      )
   )
+(defmacro progn (&rest body) `(begin ,@body))
+
