@@ -8,7 +8,12 @@ import importlib
 class Env:
     def __init__(self, parent = None):
         self.data = {}
+        self.macros = {}
+        self.functions = {}
         self.parent = parent
+
+    def set(self, name, value):
+        self.data[name] = value
 
     def get(self, name):
         if name == "t":
@@ -23,9 +28,45 @@ class Env:
             return self.parent.get(name)
         raise NameError(f"unbound symbol: {name}")
 
-    def set(self, name, value):
-        self.data[name] = value
 
+    
+    def setmacro(self, name, value):
+        self.macros[name] = value
+
+    def getmacro(self, name):
+        if name == "t":
+            return True
+
+        if name == "nil":
+            return None
+
+        if name in self.macros:
+            return self.macros[name]
+        if self.parent is not None:
+            return self.parent.get(name)
+        #no error, just not defined!
+        return None
+
+
+    
+    def setfunction(self, name, value):
+        self.functions[name] = value
+
+    def getfunction(self, name):
+        if name == "t":
+            return True
+
+        if name == "nil":
+            return None
+
+        if name in self.functions:
+            return self.functions[name]
+        if self.parent is not None:
+            return self.functions.get(name)
+        #no error, just not defined!
+        return None
+
+    
     def init_env(self, debug_level=0):
         self.debug_level = debug_level
         self.set('nil', False)
@@ -295,9 +336,13 @@ def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
 
 
 def macroexpand(env, ast, depth=-1):
-    while (depth < 0 or depth > 0) and is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
+    while is_list(ast) and len(ast) > 0 and is_symbol(ast[0]):
         #print(f"macroexpand while {depth}: {ast}")
-        depth = depth - 1
+        if depth == 0:
+            break
+        elif depth > 0:
+            depth = depth - 1
+            
         head = ast[0]
         val = None
         try:
@@ -311,15 +356,7 @@ def macroexpand(env, ast, depth=-1):
 
             raw_args = ast[1:]
 
-            #if head == "macro-include":
-            #    print(f"macroexpand {head} before: {raw_args}\n")
-
-            #print(f"macro param: {', '.join(macro.proc.params)} rest: {macro.proc.rest_name} set to {raw_args}\n")
             ast = macro.expand(env, *raw_args)
-            #if isinstance(ast, Env):
-            #    raise TypeError("this is a Env")
-            #if head == "macro-include":
-            #    print(f"macroexpand {head}  after: {ast}\n\n")
 
             continue
 
@@ -330,8 +367,8 @@ def macroexpand(env, ast, depth=-1):
     return ast
 
 
-def eval_macroexpand(env, ast):
-    return macroexpand(env, ast, depth=-1)
+def eval_macroexpand(env, depth, ast):
+    return macroexpand(env, ast, depth=depth)
 
 def eval_macroexpand_1(env, ast):
     return macroexpand(env, ast, depth=1)
@@ -408,6 +445,21 @@ def defmacro(env, name, params, body):
     proc = FunctionDef(env, params, body)
     env.set(name, Macro(proc))
 
+def macrolet(env, macros, *expressions):
+    # create new environment for local macro defs
+    # like a let
+    env = Env(env)
+
+    for macro in macros:
+        defmacro(env, *macro)
+        
+    ret = None
+
+    for expression in expressions:
+        ret = eval_lisp(env, expression)
+
+    return ret
+
 def begin(env, *args):
     expressions = args
     ret = None
@@ -441,9 +493,6 @@ def let(env: Env, vars, *expressions):
     for expression in expressions:
         ret = eval_lisp(env, expression)
 
-    # The new env is deleted automatically
-    # env = env.parent
-
     return ret
 
 
@@ -457,6 +506,7 @@ def eval_quasiquote(env, expr):
     if not isinstance(expr, (list, tuple)):
         return expr
 
+    #breakpoint()
     result = []
 
     for item in expr:
@@ -493,6 +543,16 @@ def eval_quasiquote(env, expr):
 
             result.extend(values)
 
+        # --------------------
+        # TDi nested quasiqoutes
+        # --------------------
+
+        elif (
+            isinstance(item, (list, tuple))
+            and len(item) > 0
+            and item[0] == "quasiquote"
+        ):
+            result.append(item)
         # --------------------
         # normal recursion
         # --------------------
@@ -607,6 +667,7 @@ specialforms = {
     'set!':          overwrite,
     'load':          load_and_parse_lisp_file,
     'defmacro':      defmacro,
+    'macrolet':      macrolet,
     'while':         while_loop,
     'print-eval':    print_and_eval,
     'cond':          eval_cond,
