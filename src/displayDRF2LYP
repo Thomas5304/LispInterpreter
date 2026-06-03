@@ -158,8 +158,9 @@ def parse_arguments():
     parser.add_argument("lispfiles", nargs="*")
 
     parser.add_argument("--display", dest="displayName", default = "", help="Selected display name")
-    parser.add_argument("--drf", dest="displayDRF", default = None, help="Use displayDRF file")
-    parser.add_argument("-m", "--map", dest="layerMap", default = None, help="Use layermap file")
+    parser.add_argument("--drf", dest="displayDRF", default = None, help="Use displayDRF file (*.drf)")
+    parser.add_argument("-m", "--map", dest="layerMap", default = None, help="Use layermap file (*.layermap or *.map")
+    parser.add_argument("-t", "--techfile", dest="techfile", default = None, help="Use techfile (*.tf)")
 
     return parser.parse_args()
 
@@ -229,16 +230,25 @@ def main() -> None:
     args = parse_arguments()
 
     if not args.displayDRF or not os.path.exists(args.displayDRF):
-        print("No display DRF given or does not exists")
+        print("No display DRF (*.drf) given or does not exists")
         errorstate = True
         
     if not args.layerMap or not os.path.exists(args.layerMap):
-        print("No layermap given or does not exists")
+        print("No layermap (*.layermap or *.map) given or does not exists")
         errorstate = True
+
+    if not args.techfile or not os.path.exists(args.techfile):
+        print("No techfile (*.tf) given or does not exists")
+        errorstate = True
+
 
     if errorstate:
         exit(1)
-    lisp_interpreter(args, repl = True, vars = (("use-display-drf", args.displayDRF),) )
+    lisp_interpreter(args, repl = True, vars = (
+        ("use-display-drf", args.displayDRF),
+        ("use-techfile-tf", args.techfile),
+        )
+    )
     displayDRF.createLayertable(str(Path(args.layerMap).absolute()))
 
     lypfilename = Path(args.layerMap).with_suffix(".lyp") # in local dir
