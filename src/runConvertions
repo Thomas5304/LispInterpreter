@@ -1,0 +1,2 @@
+python3 displayDRF2LYP --map mnsc05prim.layermap --drf display_1.drf --display display --tech mnsc05prim.tf
+python3 displayDRF2LYP --map mnsc05prim.layermap --drf display_1.drf --display display --tech mems.tf
