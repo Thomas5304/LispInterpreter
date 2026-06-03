@@ -161,6 +161,7 @@ def parse_arguments():
     parser.add_argument("--drf", dest="displayDRF", default = None, help="Use displayDRF file (*.drf)")
     parser.add_argument("-m", "--map", dest="layerMap", default = None, help="Use layermap file (*.layermap or *.map")
     parser.add_argument("-t", "--techfile", dest="techfile", default = None, help="Use techfile (*.tf)")
+    parser.add_argument("-r", "--repl", dest="continue_repl", action="store_true", default = False, help="Continue with REPL")
 
     return parser.parse_args()
 
@@ -244,7 +245,7 @@ def main() -> None:
 
     if errorstate:
         exit(1)
-    lisp_interpreter(args, repl = True, vars = (
+    lisp_interpreter(args, repl = args.continue_repl, vars = (
         ("use-display-drf", args.displayDRF),
         ("use-techfile-tf", args.techfile),
         )
