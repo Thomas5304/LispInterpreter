@@ -1,7 +1,22 @@
 ; macros to read display drf
 
+;; ignore macros
+;(print "keywords to ignore" keywords-to-ignore)
+(do-list (name keywords-to-ignore)
+  (eval
+   `(defmacro ,name (&rest args)
+      nil)))
 
-;interfaces to python
+
+(defmacro with-ignore-sub-keywords (names &rest body)
+  `(macrolet
+       ,(mapcar
+          (lambda (name)
+            `(,name (&rest params)
+                    `(mapcar (lambda (x) x) ',params)))
+          names)
+     ,@body))
+
 
 
 (defun-python handle-define-layer (layer) createLayer displayDRF)
@@ -170,9 +185,17 @@
 (defun handle-define-control_techParams (name value) 0);(print name "user unit" unitname "DBUPerUU" units))
 (defun handle-define-control_viewTypeUnits (name unitname units) 0);(print name "user unit" unitname "DBUPerUU" units))
 (defun handle-define-control_mfgGridResolution (grid) 0);(print "mfgGridResolution" grid))
-    
+
+
+
 (defmacro controls (&rest body)
   `(let ()
+    (with-ignore-sub-keywords (leMPPControls
+                                leMPPDefinition
+                                leMPPRingObject
+                                leMPPMasterPath
+                                leMPPEnclosedPath
+                                leMPPSubRect)
      (macrolet (
                 ;; Unter-Makro f�r viewTypeUnits
                 (viewTypeUnits (&rest units)
@@ -197,27 +220,14 @@
                                         ',params
                                         )
                                    )
-                (leMPPControls     (&rest params) `(mapcar (lambda (x) x) ',params))
-                (leMPPDefinition   (&rest params) `(mapcar (lambda (x) x) ',params))
-                (leMPPRingObject   (&rest params) `(mapcar (lambda (x) x) ',params))
-                (leMPPMasterPath   (&rest params) `(mapcar (lambda (x) x) ',params))
-                (leMPPEnclosedPath (&rest params) `(mapcar (lambda (x) x) ',params))
-                (leMPPSubRect      (&rest params) `(mapcar (lambda (x) x) ',params))
                 )
        ;; F�hre den Inhalt des controls-Blocks aus
        ,@body
        )
      "controls"
      )
+    )
   )
-
-
-;; ignore macros
-;(print "keywords to ignore" keywords-to-ignore)
-(do-list (name keywords-to-ignore)
-  (eval
-   `(defmacro ,name (&rest args)
-      nil)))
 
 
 (defun handle-define-layerDefinitions_techPurposes (purposeName purposeNum abbreviation) 0)
