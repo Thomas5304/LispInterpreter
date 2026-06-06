@@ -120,6 +120,25 @@ def lisp_mapcar(func, *lists):
         lists = [lst[1:] for lst in lists]
     return result
 
+def lisp_mapcan(func, *lists):
+    # Pruefe: mindestens eine Liste
+    if len(lists) == 0:
+        raise TypeError("mapcar braucht mindestens eine Liste")
+
+    # stoppe, wenn irgendeine Liste leer ist
+    result = []
+    # Annahme: Listen werden als Python-Listen repraesentiert
+    while all(lst for lst in lists):  # leere Liste == [] falsy
+        # aktuelle Koepfe
+        heads = [lst[0] for lst in lists]
+
+        val = func(*heads)
+
+        result.extend(val)
+        # advance lists
+        lists = [lst[1:] for lst in lists]
+    return result
+
 def lisp_apply(func, *args):
     # args: optional vorangestellte Argumente, das letzte Argument muss eine Liste sein
     if len(args) == 0:
