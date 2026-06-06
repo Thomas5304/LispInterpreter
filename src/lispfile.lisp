@@ -50,4 +50,5 @@
      )
   )
 (defmacro progn (&rest body) `(begin ,@body))
+(defun dont-quit () (set! __.QUIT.__ nil))
 
