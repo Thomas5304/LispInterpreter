@@ -7,10 +7,6 @@
 (defun-python handle-define-layer (layer) createLayer displayDRF)
 (defun-python handle-define-purpose (purpose) createPurpose displayDRF)
 
-(defmacro ignore (&rest clauses)
-    0
-)
-
 
 (defun-python handle-define-displayName (name) createDisplay displayDRF)
 (defmacro drDefineDisplay (&rest displays)
@@ -163,7 +159,7 @@
                 )
        ;; F�hre den Inhalt des controls-Blocks aus
        ,@body
-       (print "techID" techid-name techid-version techid-revision)
+       ;(print "techID" techid-name techid-version techid-revision)
 
         )
        
@@ -171,6 +167,7 @@
      )
   )
 
+(defun handle-define-control_techParams (name value) 0);(print name "user unit" unitname "DBUPerUU" units))
 (defun handle-define-control_viewTypeUnits (name unitname units) 0);(print name "user unit" unitname "DBUPerUU" units))
 (defun handle-define-control_mfgGridResolution (grid) 0);(print "mfgGridResolution" grid))
     
@@ -195,7 +192,7 @@
                                    )
                 (techParams (&rest params)
                                    `(mapcar (lambda (param)
-                                          (print param)
+                                          (handle-define-control_techParams (nth 0 param) (nth 1 param))
                                           )
                                         ',params
                                         )
@@ -225,9 +222,9 @@
 
 (defun handle-define-layerDefinitions_techPurposes (purposeName purposeNum abbreviation) 0)
 (defun handle-define-layerDefinitions_techLayers (layerName layerNum abbreviation) 0)
-(defun handle-define-layerDefinitions_techLayerPurposePriorities (layerName purposeName) 0);(print "prio" layerName purposeName))
+(defun handle-define-layerDefinitions_techLayerPurposePriorities (layerName purposeName) 0)
 (defun handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid)
-  0);(print "techDisplays" layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid))
+  0)
 (defun-python handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid)
   createTechDisplays displayDRF)
 
@@ -276,8 +273,8 @@
 
 
 
-(defun handle-define-layerRules_functions (layer     function     maskNumber ) 0);(print "layerrules functions " layer function maskNumber))
-(defun handle-define-layerRules_mfgResolutions (layer         mfgResolution ) 0);(print "mfgGridResolution" layer         mfgResolution))
+(defun handle-define-layerRules_functions (layer function maskNumber ) 0)
+(defun handle-define-layerRules_mfgResolutions (layer mfgResolution ) 0) 
     
 
 (defmacro layerRules (&rest body)
