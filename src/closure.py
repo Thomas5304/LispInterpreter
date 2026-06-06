@@ -257,6 +257,26 @@ class FunctionBase:
         return env
 
 
+class LispHashTable:
+    def __init__(self, test=None):
+        self.table = {}
+        self.test = test or equal
+
+def builtin_gethash(args, env):
+    key = eval(args[0], env)
+    table = eval(args[1], env)
+
+    return table.data.get(key)
+
+
+def builtin_puthash(args, env):
+    key = eval(args[0], env)
+    value = eval(args[1], env)
+    table = eval(args[2], env)
+
+    table.data[key] = value
+    return value    
+
 class FunctionDef(FunctionBase):
     def __init__(self, closure, all_params, body) -> None:
         super().__init__(closure, all_params)
