@@ -1,2 +1,10 @@
-python3 displayDRF2LYP --map mnsc05prim.layermap --drf display_1.drf --display display --tech mnsc05prim.tf
-python3 displayDRF2LYP --map mnsc05prim.layermap --drf display_1.drf --display display --tech mems.tf
+
+python3 displayDRF2LYP --map mnsc05prim.layermap --drf display_1.drf --display display --tech mnsc05prim.tf --ignore viaDefs constraintGroups
+
+python3 displayDRF2LYP --map memsprim.layermap --drf display_mems.drf --tech mems.tf --ignore viaDefs constraintGroups
+
+
+python3 displayDRF2LYP --map /proot/c13_gf/0101/designkits/PDK/130BCD/V1.0_5.1a/DesignEnv/CustomCompiler_Laker_OA/libs/cmos013bcd_tech_6M_5Mx_1Ox_SM/cmos013bcd_tech.layermap --tech /proot/c13_gf/0101/designkits/PDK/130BCD/V1.0_5.1a/DesignEnv/CustomCompiler_Laker_OA/libs/cmos013bcd_tech_6M_5Mx_1Ox_SM/cmos013bcd_tech_6M_5Mx_1Ox_SM.tf --drf /proot/c13_gf/0101/designkits/PDK/130BCD/V1.0_4.0-ENG01/DesignEnv/CustomCompiler_Laker_OA/libs/display.drf --ignore viaDefs constraintGroups techLayerProperties techDerivedLayers routingDirections currentDensities --display display --output c13_gf.lyp
+
+#/proot/c13_gf/0101/designkits/PDK/130BCD/V1.0_4.0-ENG01/DesignEnv/CustomCompiler_Laker_OA/libs/display.drf
+#/proot/c13_gf/0101/designkits/PDK/130BCD/V1.0_5.1a/DesignEnv/CustomCompiler_Laker_OA/libs/cmos013bcd_tech_6M_5Mx_1Ox_SM/display.drf
