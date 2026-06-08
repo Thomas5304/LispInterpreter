@@ -115,6 +115,9 @@ class Env:
         #self.set('symbol-name', symbol_name)
         self.set('intern', eval_intern)
         #self.set('length', lambda x: len(x) if is_list(x) else 0)
+        self.set('make-hash-table', builtin_make_hash_table)
+        self.set('gethash', builtin_gethash)
+        self.set('puthash', builtin_puthash)
 
     def overwrite(self, name, value):
         if name in self.data.keys():
@@ -268,7 +271,9 @@ def builtin_gethash(args, env):
 
     return table.data.get(key)
 
-
+def builtin_make_hash_table(args):
+    return LispHashTable()
+    
 def builtin_puthash(args, env):
     key = eval(args[0], env)
     value = eval(args[1], env)
