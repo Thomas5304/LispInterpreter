@@ -165,6 +165,8 @@ def parse_arguments():
 
     parser.add_argument("--ignore", dest="ignore_keywords", nargs="+", action="extend", help="Keywords to ignore")
 
+    parser.add_argument("--output", dest="output_file", action = "store", help="Name of output file (*.lyp)")
+
     return parser.parse_args()
 
 
@@ -255,7 +257,10 @@ def main() -> None:
     )
     displayDRF.createLayertable(str(Path(args.layerMap).absolute()))
 
-    lypfilename = Path(args.layerMap).with_suffix(".lyp") # in local dir
+    if args.output_file is None:
+        lypfilename = Path(Path(args.layerMap).stem).with_suffix(".lyp") # in local dir
+    else:
+        lypfilename = Path(args.output_file)
     with open(lypfilename, "w") as lyphandle:
         displayDRF.generate_lyp(lyphandle, displayName = args.displayName)
 
