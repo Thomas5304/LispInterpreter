@@ -164,11 +164,12 @@ def parse_arguments():
     parser.add_argument("-r", "--repl", dest="continue_repl", action="store_true", default = False, help="Continue with REPL")
 
     parser.add_argument("--ignore", dest="ignore_keywords", nargs="+", action="extend", help="Keywords to ignore")
+    parser.add_argument("--repl-only", dest="repl_only", default=False, action="store_true", help="Start interpreter only")
 
     return parser.parse_args()
 
 
-def lisp_interpreter(args, repl = True, vars=()):
+def lisp_interpreter(args, repl = True, read_default_lisp_files = True, vars=()):
     debug_level = 1
     main_env = closure.Env()
     main_env.init_env()
@@ -182,10 +183,13 @@ def lisp_interpreter(args, repl = True, vars=()):
     programname = program.name
     print(f"{programname} located in {programpath}")
 
-    lispfiles = [programpath / "lispfile.lisp",
-                 programpath / "displayDRF-Macros.l",
-                 programpath / "read-displayDRF.l",
-    ]
+    lispfiles = [programpath / "lispfile.lisp",]
+
+    if read_default_lisp_files:
+        lispfiles.extent([programpath / "displayDRF-Macros.l",
+                        programpath / "read-displayDRF.l",
+            ])
+        
     for lf in args.lispfiles:
         lispfiles.append(Path(lf).absolute())
 
@@ -232,6 +236,10 @@ def main() -> None:
     errorstate = False
     args = parse_arguments()
 
+    if args.repl_only:
+        lisp_interpreter(args, repl = True, read_default_lisp_files=not args.repl_only)
+        return
+
     if not args.displayDRF or not os.path.exists(args.displayDRF):
         print("No display DRF (*.drf) given or does not exists")
         errorstate = True
@@ -247,10 +255,11 @@ def main() -> None:
 
     if errorstate:
         exit(1)
-    lisp_interpreter(args, repl = args.continue_repl, vars = (
-        ("use-display-drf", args.displayDRF),
-        ("use-techfile-tf", args.techfile),
-        ("keywords-to-ignore", args.ignore_keywords),
+    lisp_interpreter(args, repl = args.continue_repl, read_default_lisp_files=not args.repl_only,
+        vars= (
+            ("use-display-drf", args.displayDRF),
+            ("use-techfile-tf", args.techfile),
+            ("keywords-to-ignore", args.ignore_keywords),
         )
     )
     displayDRF.createLayertable(str(Path(args.layerMap).absolute()))
