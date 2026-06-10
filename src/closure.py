@@ -510,7 +510,7 @@ def define(env: Env, *args):
     env.set(var, eval_lisp(env, value))
 
 def overwrite(env, var, value):
-    return "t" if env.overwrite(var, value) else "nil"
+    return value if env.overwrite(var, eval_lisp(env, value)) else "nil"
 
 def let(env: Env, vars, *expressions):
     env = Env(env)
@@ -783,4 +783,4 @@ def run(lisp_tree : list[Any], env:Env):
             raise
 
         if env.get('last-expr!') is not None:
-            print(env.get('last-expr!'))
+            print(lispSupport.print_lisp_recursive(env.get('last-expr!')))
