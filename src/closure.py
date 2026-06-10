@@ -512,16 +512,29 @@ def define(env: Env, *args):
 def overwrite(env, var, value):
     return value if env.overwrite(var, eval_lisp(env, value)) else "nil"
 
-def let(env: Env, vars, *expressions):
+def letasterix(env: Env, varsdefs, *expressions):
     env = Env(env)
 
-    for var in vars:
-        define(env, *var)
+    for var, value in varsdefs:
+        env.set(var, eval_lisp(env, value))
 
     ret = None
 
     for expression in expressions:
         ret = eval_lisp(env, expression)
+
+    return ret
+
+def let(env: Env, varsdefs, *expressions):
+    newenv = Env(env)
+
+    for var, value in varsdefs:
+        newenv.set(var, eval_lisp(env, value))
+
+    ret = None
+
+    for expression in expressions:
+        ret = eval_lisp(newenv, expression)
 
     return ret
 
@@ -687,6 +700,7 @@ specialforms = {
     'define':        define,
     'setq':          define,
     'let':           let,
+    'let*':          letasterix,
     'lambda':        create_lambda,
     'defun':         define_function,
     'defun-python':  defun_python,
