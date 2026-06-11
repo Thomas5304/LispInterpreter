@@ -87,7 +87,7 @@ def eval_append(lst, *args):
     return lst
 
 def lisp_map(func, *args):
-    if not isinstance(func, FunctionDef) and not callable(func):
+    if not isinstance(func, closure.FunctionDef) and not callable(func):
         raise TypeError(f"map: can't call func {func}")
 
     for nr, lst in enumerate(args):
@@ -168,9 +168,7 @@ def print_lisp_recursive(expression):
         return str(expression)
     elif isinstance(expression, (tuple, list)):
         ret = "("
-        for e in expression:
-            ret+=print_lisp_recursive(e)+" "
-        ret.rstrip()
+        ret += " ".join(print_lisp_recursive(e) for e in expression)
         ret += ")"
         return ret
     return "???"
