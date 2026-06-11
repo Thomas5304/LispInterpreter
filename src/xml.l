@@ -62,6 +62,13 @@
             ((== msg 'post-decr) (let ((old wert)) (set! wert (- wert 1)) old))
             (else "Unbekannt")))))
 
+(let ((count 0))
+  (defun get-count () count)
+  (defun count++ () (begin (set! count (+ count 1)) count))
+  (defun count-- () (begin (set! count (- count 1)) count))
+  (defun auto-count () (let ((old-count count)) (set! count (+ count 1)) old-count))
+  )
+
 (setq next-id (mache-zaehler 0))
 
 (next-id 'hole-wert)
@@ -69,7 +76,11 @@
 (next-id 'post-incr)
 (next-id 'hole-wert)
 
-
+(get-count)
+(auto-count)
+(auto-count)
+(auto-count)
+(get-count)
 
 (xml ("test" "id" (next-id 'post-incr))
      (xml ("level1" "id" (next-id 'post-incr))
