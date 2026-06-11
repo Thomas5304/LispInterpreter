@@ -216,6 +216,8 @@ def lisp_interpreter(args, repl = True):
                 #print(f"buffer '{buffer}'")
 
                 if not expr_text:
+                    if expr_text == "":
+                        break
                     continue
 
                 token_generator = tokenize(expr_text)
