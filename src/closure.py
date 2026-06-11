@@ -153,23 +153,27 @@ class Env:
             ret += str(self.parent)
         return ret + str(self.data)
 
+
+def find_key_in_all_params(params, key):
+    if key in params:
+        return params.index(key)
+    return None
+
+    
 class FunctionBase:
     optional_keyword = "&optional"
     key_keyword = "&key"
     rest_keyword = "&rest"
-    def find_key_in_all_params(params, key):
-        if key in params:
-            return params.index(key)
-        return None
+
         
     def __init__(self, closure, all_params) -> None:
         self.optional = []
         self.key_params = {}
         self.rest_name = None
         
-        optional_idx = FunctionBase.find_key_in_all_params(all_params, FunctionBase.optional_keyword)
-        key_idx = FunctionBase.find_key_in_all_params(all_params, FunctionBase.key_keyword)
-        rest_idx = FunctionBase.find_key_in_all_params(all_params, FunctionBase.rest_keyword)
+        optional_idx = find_key_in_all_params(all_params, FunctionBase.optional_keyword)
+        key_idx = find_key_in_all_params(all_params, FunctionBase.key_keyword)
+        rest_idx = find_key_in_all_params(all_params, FunctionBase.rest_keyword)
         
         if rest_idx is not None:
             if rest_idx>len(all_params)-2:
