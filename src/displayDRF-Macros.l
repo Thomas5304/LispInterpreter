@@ -28,7 +28,7 @@
     `(begin ,@(mapcar ,(lambda (display)
                             (let ((displayName (car display)))
                                 (handle-define-displayName displayName)
-                                0
+                                ;0
                             )
                         )
                 displays)
@@ -45,7 +45,7 @@
                                     (linePattern (nth 3 linestyle))
                                 )
                                 (handle-define-linestyle name display lineSize linePattern )
-                                0
+                                ;0
                             )
                         )
                     linestyles
@@ -66,7 +66,7 @@
                                 (fillStyle (nth 6 packet))
                                 )
                                 (handle-define-displaypacket name display stippleName lineStyleName fillColor outlineColor fillStyle)
-                                0
+                                ;0
                             )
                         )
                     packets
@@ -81,7 +81,7 @@
                              (StippleName (nth 1 clause))
                              (BitMap      (nth 2 clause)))
                          (handle-define-stipple StippleName DisplayName BitMap)
-                         0
+                         ;0
                          )
                        )
                     clauses)
@@ -99,7 +99,7 @@
                                 (Fill      (nth 5 color))
                                 )
                             (handle-define-color name display Red Green Blue )
-                            0
+                            ;0
                             )
                         )
                 colors
@@ -111,7 +111,7 @@
   `(begin ,@(mapcar ,(lambda (clause)
                        (let ((layerName   (nth 0 clause)))
                             (handle-define-layer layerName)
-                            0
+                            ;0
                         )
                       )
              clauses
@@ -123,7 +123,7 @@
   `(list ,@(mapcar ,(lambda (clause)
                        (let ((purposeName   (nth 0 clause)))
                             (handle-define-purpose purposeName)
-                            0
+                            ;0
                         )
                       )
              clauses
@@ -178,7 +178,7 @@
 
         )
        
-     "techId"
+     ;"techId"
      )
   )
 
@@ -224,7 +224,7 @@
        ;; F�hre den Inhalt des controls-Blocks aus
        ,@body
        )
-     "controls"
+     ;"controls"
      )
     )
   )
@@ -233,10 +233,8 @@
 (defun handle-define-layerDefinitions_techPurposes (purposeName purposeNum abbreviation) 0)
 (defun handle-define-layerDefinitions_techLayers (layerName layerNum abbreviation) 0)
 (defun handle-define-layerDefinitions_techLayerPurposePriorities (layerName purposeName) 0)
-(defun handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid)
-  0)
-(defun-python handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid)
-  createTechDisplays displayDRF)
+(defun handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid) 0)
+(defun-python handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid) createTechDisplays displayDRF)
 
 (defmacro layerDefinitions (&rest body)
   `(let ()
@@ -277,7 +275,7 @@
        ;; F�hre den Inhalt des controls-Blocks aus
        ,@body
        )
-     "layerDefinitions"
+     ;"layerDefinitions"
      )
   )
 
@@ -310,20 +308,25 @@
        ;; F�hre den Inhalt des controls-Blocks aus
        ,@body
        )
-     "layerRules"
+     ;"layerRules"
      )
   )
 
 
-
 (defun load-display-drf (displayDRF)
-    (let ((function-mode t))
-        (include displayDRF)
-    )
+  (begin
+   (print (+ "reading DRF file " displayDRF))
+   (let ((function-mode t))
+     (include displayDRF)
+     )
+   )
 )
 
 (defun load-techfile-tf (techfile-tf)
-    (let ((function-mode t))
-        (include techfile-tf)
-    )
-)
+  (begin
+   (print (+ "reading TF file " techfile-tf))
+   (let ((function-mode t))
+     (include techfile-tf)
+     )
+   )
+  )
