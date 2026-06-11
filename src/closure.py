@@ -359,7 +359,7 @@ def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
         raise NameError(f"Python function '{py_name}' not found in provided namespace")
 
     bridge = PythonBridgeFunction(env, params, py_func)
-    env.set(lisp_name, bridge)
+    env.setglob(lisp_name, bridge)
 
 
 def macroexpand(env, ast, depth=-1):
