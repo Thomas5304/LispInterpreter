@@ -452,8 +452,7 @@ def define_function(env, name, params, body):
         #print(f"try to add function {name} ({params}) {body}")
         env.setglob(name, None)
         func = FunctionDef(env, params, body)
-        if not env.setglob(name, func):
-            raise NameError(f"expecting function {name} in environtment")
+        env.setglob(name, func)
     except NameError as ne:
         print(f"function {name} not defined: {ne}")
         traceback.print_exc()
