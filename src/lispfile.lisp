@@ -59,7 +59,7 @@
 (defmacro incr (var) `(begin (set! ,var (1+ ,var)) ,var))
 (defmacro decr (var) `(begin (set! ,var (1- ,var)) ,var))
 
-(defmacro mk-counter (name &optional (start 0) (increment 1))
+(defmacro mk-counter (name &key (start 0) (increment 1))
   (let ((pre-plus (intern (format "{}+" name)))    ;; Erzeugt z.B. zähler-1+
         (pre-minus (intern (format "{}-" name)))   ;; Erzeugt z.B. zähler-1-
         (post-plus (intern (format "{}++" name)))    ;; Erzeugt z.B. zähler-1+
