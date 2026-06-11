@@ -450,9 +450,9 @@ def create_lambda(env, *args):
 def define_function(env, name, params, body):
     try:
         #print(f"try to add function {name} ({params}) {body}")
-        env.set(name, None)
+        env.setglob(name, None)
         func = FunctionDef(env, params, body)
-        if not env.overwrite(name, func):
+        if not env.setglob(name, func):
             raise NameError(f"expecting function {name} in environtment")
     except NameError as ne:
         print(f"function {name} not defined: {ne}")
