@@ -120,7 +120,11 @@ def first_complete_expr(s: str):
     if paren == 0 and not in_string and block_comment == 0:
         # evtl. kein top-level Ausdruck begonnen -> None (oder 0)
         # Wir geben None zurueck, damit der Aufrufer bei leerem/unschließendem Input weitere Zeilen erwartet.
-        return None
+        # return None
+        #
+        # if no parent no string or no blockcomment
+        # we want to get the value of variables
+        return i
 
     # ansonsten: unvollstaendig (offene Klammern, String oder Block-Comment)
     return None
@@ -233,8 +237,6 @@ def main() -> None:
         errorstate = True
         
     lisp_interpreter(args, repl = True)
-    displayDRF.createLayertable(str(Path("memsprim.layermap").absolute()))
-    displayDRF.generate_lyp(sys.stdout)
     
 if __name__ == '__main__':
     main()
