@@ -800,14 +800,31 @@ def eval_lisp(env, expression):
         #traceback.print_exc()
         raise
 
+last_results_key = "&"
+def push_last_results(env, value, num=3):
+    def forwardpush(env, num):
+        if num<1:
+            return
+        
+        try:
+            env.set(last_results_key*(num+1), env.get(last_results_key*num))
+        except KeyError:
+            pass
+        except NameError:
+            pass
+        forwardpush(env, num-1)
+            
+    forwardpush(env, num-1)
+    env.set(last_results_key, value)
+
 def run(lisp_tree : list[Any], env:Env):
     for e in lisp_tree:
         try:
             if e is not None:
                 result = eval_lisp(env, e)
-                env.set('last-expr!', result)
+                push_last_results(env, result)
             else:
-                env.set('last-expr!', None)
+                push_last_result(env, None)
         except ValueError as ve:
             print(f"{ve}\n in {lispSupport.print_lisp_recursive(e)}")
             #traceback.print_exc()
@@ -817,5 +834,5 @@ def run(lisp_tree : list[Any], env:Env):
             #traceback.print_exc()
             raise
 
-        if env.get('last-expr!') is not None:
-            print(lispSupport.print_lisp_recursive(env.get('last-expr!')))
+        if env.get(last_results_key) is not None:
+            print(lispSupport.print_lisp_recursive(env.get(last_results_key)))
