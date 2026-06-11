@@ -1,13 +1,5 @@
-(defun 1+ (var) (begin (+ var 1)))
-(defun 1- (var) (begin (- var 1)))
-
-(defmacro incr (var) `(set! ,var (1+ ,var)))
-(defmacro decr (var) `(set! ,var (1- ,var)))
 
 (setq indent 0)
-
-(macroexpand-1 (incr indent))
-(macroexpand-1 (decr indent))
 
 (defun make-indentation (spc)
   (if (== spc 0) "" (+ (make-indentation (1- spc)) " ")))
@@ -52,39 +44,11 @@
          ,@body)
        (print-indent (+ "</" key ">")))))
 
-(defun mache-zaehler (startwert)
-  (let ((wert startwert)) ; Hier wird die Umgebung mit 'wert' erstellt
-    (lambda (msg)
-      (cond ((== msg 'hole-wert) wert)
-            ((== msg 'incr) (set! wert (+ wert 1)) wert)
-            ((== msg 'decr) (set! wert (- wert 1)) wert)
-            ((== msg 'post-incr) (let ((old wert)) (set! wert (+ wert 1)) old))
-            ((== msg 'post-decr) (let ((old wert)) (set! wert (- wert 1)) old))
-            (else "Unbekannt")))))
+(mk-counter next-id)
 
-(let ((count 0))
-  (defun get-count () count)
-  (defun count++ () (begin (set! count (+ count 1)) count))
-  (defun count-- () (begin (set! count (- count 1)) count))
-  (defun auto-count () (let ((old-count count)) (set! count (+ count 1)) old-count))
-  )
-
-(setq next-id (mache-zaehler 0))
-
-(next-id 'hole-wert)
-(next-id 'incr)
-(next-id 'post-incr)
-(next-id 'hole-wert)
-
-(get-count)
-(auto-count)
-(auto-count)
-(auto-count)
-(get-count)
-
-(xml ("test" "id" (next-id 'post-incr))
-     (xml ("level1" "id" (next-id 'post-incr))
-          (xml "level2"
+(xml ("test" "id" (next-id++))
+     (xml ("level1" "id" (next-id++))
+          (xml ("level2" "id" (next-id++))
                (print-indent "text" )
                )
           )
