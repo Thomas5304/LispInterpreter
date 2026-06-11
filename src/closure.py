@@ -154,33 +154,54 @@ class Env:
         return ret + str(self.data)
 
 class FunctionBase:
+    optional_keyword = "&optional"
+    key_keyword = "&key"
+    rest_keyword = "&rest"
+    def find_key_in_all_params(params, key):
+        if key in params:
+            return params.index(key)
+        return None
+        
     def __init__(self, closure, all_params) -> None:
+        self.optional = []
         self.key_params = {}
-        if '&rest' in all_params:
-            idx = all_params.index('&rest')
-            if idx>len(all_params)-2:
+        self.rest_name = None
+        
+        optional_idx = FunctionBase.find_key_in_all_params(all_params, FunctionBase.optional_keyword)
+        key_idx = FunctionBase.find_key_in_all_params(all_params, FunctionBase.key_keyword)
+        rest_idx = FunctionBase.find_key_in_all_params(all_params, FunctionBase.rest_keyword)
+        
+        if rest_idx is not None:
+            if rest_idx>len(all_params)-2:
                 SyntaxError(f"function with &rest is missing name for rest parameter")
-            self.rest_name = all_params[idx+1]
-            all_params = all_params[:-2]
-        else:
-            self.rest_name = None
+            self.rest_name = all_params[rest_idx+1]
+            all_params = all_params[:rest_idx]
 
-        if '&key' in all_params:
-            idx = all_params.index('&key')
 
-            for kv in all_params[idx+1:]:
+        if key_idx is not None:
+
+            for kv in all_params[key_idx+1:]:
                 if isinstance(kv, (tuple, list)):
                     k, v = kv
                     self.key_params[k] = v
                 else:
                     self.key_params[kv] = None
-            self.params = all_params[:idx]
+
+            all_params = all_params[:key_idx]
             self.param_mode = "keys"
         else:
-            self.params = all_params
             self.param_mode = "positional"
-        self.optional = []
 
+
+        if optional_idx is not None:
+            for opt in all_params[optional_idx+1:]:
+                if is_list(opt):
+                    self.optional.append(opt)
+                else:
+                    self.optional.append([opt, None]) 
+            all_params = all_params[:optional_idx]
+
+        self.params = all_params
         self.closure = closure
 
     def bind_params(self, *args):
@@ -193,6 +214,7 @@ class FunctionBase:
         # ---------------------------
         while i < len(self.params):
             if arg_i >= len(args):
+                breakpoint()
                 raise Exception("Missing positional argument")
 
             env.set(self.params[i], args[arg_i])
