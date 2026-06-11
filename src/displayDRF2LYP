@@ -192,7 +192,7 @@ def lisp_interpreter(args, repl = True, read_default_lisp_files = True, vars=())
     lispfiles = [programpath / "lispfile.lisp",]
 
     if read_default_lisp_files:
-        lispfiles.extent([programpath / "displayDRF-Macros.l",
+        lispfiles.extend([programpath / "displayDRF-Macros.l",
                         programpath / "read-displayDRF.l",
             ])
         
@@ -261,6 +261,8 @@ def main() -> None:
 
     if errorstate:
         exit(1)
+
+
     lisp_interpreter(args, repl = args.continue_repl, read_default_lisp_files=not args.repl_only,
         vars= (
             ("use-display-drf", args.displayDRF),
