@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable, Any, Iterable, Generator, TypeVar
 import importlib
 import tabulate
+from functools import partial
 
 import tokenParse
 
@@ -21,10 +22,19 @@ class Env:
         self.data = {}
         self.macros = {}
         self.functions = {}
+        self.need_env = {}
         self.parent = parent
 
-    def set(self, name, value):
+    def set(self, name, value, *, need_env = False):
         self.data[name] = value
+        self.need_env[name] = True
+
+    def needs_env(self, name):
+        if name in self.need_env.keys():
+            return True
+        if self.parent is not None:
+            return self.parent.needs_env(name)
+        return False
 
     def get(self, name):
         if name == "t":
@@ -97,8 +107,8 @@ class Env:
         self.set('list', lispSupport.create_list)
         self.set('cons', lispSupport.eval_append)
         self.set('append', lispSupport.eval_append)
-        self.set('and', lambda a, b: a and b)
-        self.set('or', lambda a, b: a or b)
+        self.set('and', lambda *args: all(a for a in args))
+        self.set('or', lambda *args: any(a for a in args))
         self.set('zip', lambda *a: list(zip(*a)))
         self.set('null', lambda a: len(a)==0)
         self.set('atom?', lambda a: "t" if not is_list(a) else "nil")
@@ -119,7 +129,7 @@ class Env:
         self.set('not' , lambda x:  not x )
         self.set('car' , lispSupport.car)
         self.set('cdr' , lispSupport.cdr)
-        self.set('print-env', lambda *args: print(str(self)))
+        self.set('print-env', lambda e: print(str(e)), need_env = True)
         self.set('map', lispSupport.lisp_map)
         self.set('mapcar', lispSupport.lisp_mapcar)
         self.set('mapcan', lispSupport.lisp_mapcan)
@@ -158,6 +168,11 @@ class Env:
         if self.parent is None:
             return self.get(name)
         return self.parent.getglob(name)
+        
+    def needs_envglob(self, name):
+        if self.parent is  None:
+            return self.needs_env(name)
+        return self.parent.needs_envglob(name)
 
     def containsglob(self, name):
         if self.parent is None:
@@ -855,7 +870,11 @@ def eval_lisp(env, expression):
         values = [eval_lisp(env, arg) for arg in args]
 
         if isinstance(function, str):
-            func = env.get(function)
+            needs_env = env.needs_env(function)
+            if needs_env:
+                func = partial(env.get(function), env)
+            else:
+                func = env.get(function)
         else:
             func = function
         if isinstance(func, FunctionDef):
