@@ -4,6 +4,15 @@ import traceback
 from pathlib import Path
 from typing import Callable, Any, Iterable, Generator, TypeVar
 import importlib
+import tabulate
+
+
+last_results_key = "&"
+last_input_key = "%"
+max_number_of_last_keys = 3
+last_results_keys = list((last_results_key * (n+1) for n in range(max_number_of_last_keys)))
+last_input_keys = list((last_input_key * (n+1) for n in range(max_number_of_last_keys)))
+
 
 class Env:
     def __init__(self, parent = None):
@@ -28,7 +37,12 @@ class Env:
             return self.parent.get(name)
         raise NameError(f"unbound symbol: {name}")
 
-
+    def contains(self, name):
+        if name in self.data.keys():
+            return True
+        if self.parent is not None:
+            return self.parent.contains(name)
+        return False
 
     def setmacro(self, name, value):
         self.macros[name] = value
@@ -77,6 +91,7 @@ class Env:
         self.set('format', lispSupport.lisp_format)
         self.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
         self.set('print', print)
+        self.set('print-lisp', lispSupport.print_lisp_recursive)
         self.set('list', lispSupport.create_list)
         self.set('cons', lispSupport.eval_append)
         self.set('append', lispSupport.eval_append)
@@ -111,13 +126,13 @@ class Env:
         self.set('function', lambda f: f)
         self.set('quit', lambda : self.setglob("__.QUIT.__", True))
         #self.set('debug', lambda debug_level=None: set_debug_level(debug_level))
-        self.set('last-expr!', None)
         #self.set('symbol-name', symbol_name)
         self.set('intern', eval_intern)
         #self.set('length', lambda x: len(x) if is_list(x) else 0)
         self.set('make-hash-table', builtin_make_hash_table)
         self.set('gethash', builtin_gethash)
         self.set('puthash', builtin_puthash)
+        
 
     def overwrite(self, name, value):
         if name in self.data.keys():
@@ -142,6 +157,11 @@ class Env:
             return self.get(name)
         return self.parent.getglob(name)
 
+    def containsglob(self, name):
+        if self.parent is None:
+            return name in self.data.keys()
+        return self.parent.containsglob(name)
+
     def empty(self):
         if len(self.data) == 0:
             return True
@@ -153,6 +173,48 @@ class Env:
             ret += str(self.parent)
         return ret + str(self.data)
 
+
+def print_stacks(env, *args):
+    use_tabulate = True
+    if use_tabulate:
+        results = [[]]
+        for n in list(zip(last_input_keys, last_results_keys))[::-1]:
+            results[-1].append(n[0])
+            results[-1].append(n[1])
+            if env.containsglob(n[0]):
+                results[-1].append(f"{env.getglob(n[0])}")
+            else:
+                results[-1].append(f"")
+
+            if env.containsglob(n[1]):
+                if env.getglob(n[1]) is not None:
+                    results[-1].append(str(env.getglob(n[1])))
+                else:
+                    results[-1].append("nil")
+
+            results.append([])
+
+        return tabulate.tabulate(results, maxcolwidths=[3, 3, 60, 60])
+
+    else:
+        #breakpoint()
+        results = ""
+        for n in list(zip(last_input_keys, last_results_keys))[::-1]:
+            results+=str(n)
+            if env.containsglob(n[0]):
+                results+= f"   |   {env.getglob(n[0])}:  "
+            else:
+                results+= f"   |    - :  "
+
+            if env.containsglob(n[1]):
+                if env.getglob(n[1]) is not None:
+                    results+=str(env.getglob(n[1]))
+                else:
+                    results+="nil"
+
+            results+="\n\n"
+        
+    return results
 
 def find_key_in_all_params(params, key):
     if key in params:
@@ -743,6 +805,7 @@ specialforms = {
     'macroexpand-1': eval_macroexpand_1,
     'macroexpand':   eval_macroexpand,
     'include':       eval_include,
+    'get-stack':     print_stacks,
 }
 
 def eval_lisp(env, expression):
@@ -800,31 +863,33 @@ def eval_lisp(env, expression):
         #traceback.print_exc()
         raise
 
-last_results_key = "&"
-def push_last_results(env, value, num=3):
-    def forwardpush(env, num):
+
+def push_last_info_stack(env, value, letter, num=3):
+    def forwardpush(env, letter, num):
         if num<1:
             return
         
-        try:
-            env.set(last_results_key*(num+1), env.get(last_results_key*num))
-        except KeyError:
-            pass
-        except NameError:
-            pass
-        forwardpush(env, num-1)
+        if env.containsglob(letter*(num-1)):
+            env.setglob(letter*num, env.getglob(letter*(num-1)))
+        forwardpush(env, letter, num-1)
             
-    forwardpush(env, num-1)
-    env.set(last_results_key, value)
+    forwardpush(env, letter, num)
+    env.setglob(letter, value)
 
 def run(lisp_tree : list[Any], env:Env):
     for e in lisp_tree:
         try:
             if e is not None:
+                repeat_command = False
+                #print(e)
+                if e in last_input_keys and env.containsglob(e):
+                    e = env.getglob(e)
+                    repeat_command = True
+                #print(e, last_input_keys)
                 result = eval_lisp(env, e)
-                push_last_results(env, result)
-            else:
-                push_last_result(env, None)
+                if not repeat_command:
+                    push_last_info_stack(env, e, last_input_key, max_number_of_last_keys)
+                push_last_info_stack(env, result, last_results_key, max_number_of_last_keys)
         except ValueError as ve:
             print(f"{ve}\n in {lispSupport.print_lisp_recursive(e)}")
             #traceback.print_exc()
@@ -834,5 +899,5 @@ def run(lisp_tree : list[Any], env:Env):
             #traceback.print_exc()
             raise
 
-        if env.get(last_results_key) is not None:
-            print(lispSupport.print_lisp_recursive(env.get(last_results_key)))
+        if env.containsglob(last_results_key) and env.getglob(last_results_key) is not None:
+            print(lispSupport.print_lisp_recursive(env.getglob(last_results_key)))
