@@ -162,14 +162,10 @@ def parse_arguments():
 
     parser.add_argument("lispfiles", nargs="*")
 
-    parser.add_argument("--display", dest="displayName", default = "", help="Selected display name")
-    parser.add_argument("-d", "--drf", dest="displayDRF", default = None, help="Use displayDRF file")
-    parser.add_argument("-m", "--map", dest="layerMap", default = None, help="Use layermap file")
-
     return parser.parse_args()
 
 
-def lisp_interpreter(args, repl = True):
+def lisp_interpreter(args, repl = True, vars={}):
     debug_level = 1
     main_env = closure.Env()
     main_env.init_env()
@@ -178,6 +174,9 @@ def lisp_interpreter(args, repl = True):
     programpath = program.parent
     programname = program.name
     print(f"{programname} located in {programpath}")
+
+    for var in vars:
+        main_env.set(var[0], var[1])
 
     lispfiles = [programpath / Path("lispfile.lisp")]
     for lf in args.lispfiles:
@@ -231,14 +230,6 @@ def main() -> None:
     errorstate = False
     args = parse_arguments()
 
-    if not args.displayDRF:
-        print("No display DRF given")
-        errorstate = True
-        
-    if not args.layerMap:
-        print("No layermap given")
-        errorstate = True
-        
     lisp_interpreter(args, repl = True)
     
 if __name__ == '__main__':
