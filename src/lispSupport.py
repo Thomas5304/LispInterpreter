@@ -159,18 +159,24 @@ def lisp_apply(func, *args):
 
 #(print-eval (apply + 20 30 '(1 2 3 4 5)))
 
-def print_lisp_recursive(expression):
+def print_lisp_recursive_expression(expression):
     if isinstance(expression, tokenParse.Symbol):
         return expression
-    elif isinstance( expression, str):
-        return f'"{expression}"'
-    elif isinstance( expression, (int, float, str)):
+    elif isinstance(expression, (int, float)):
         return str(expression)
+    elif isinstance(expression, str):
+        return expression
     elif isinstance(expression, (tuple, list)):
         ret = "("
         ret += " ".join(print_lisp_recursive(e) for e in expression)
         ret += ")"
         return ret
     return "???"
+
+def print_lisp_recursive(*expressions):
+    result = ""
+    for expression in expressions:
+        result += print_lisp_recursive_expression(expression)
+    return result
 
 
