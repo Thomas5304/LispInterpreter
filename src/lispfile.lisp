@@ -8,32 +8,32 @@
             (+ (length (cdr lst)) 1)
         )
     )
-(defmacro my-and (&rest expr)
-    (begin
-    (print expr)
-    (cond
-        ((null expr) (print "emptylist") t)
-        ((null (cdr expr)) (print "one element") ,(car expr))
-        (else `(if ,(car expr) (my-and ,@(cdr expr)))
-        )
-    ))
-)
-(defmacro my-cond (&rest branches)
-    (if (null branches)
-        nil
-        (let (
-                (part-1 (car branches))
-                (last (cdr branches))
-                (condition (car part-1))
-                (body (cdr part-1))
-            )
-            `(if ,condition (begin ,@body)
-                (my-cond ,@last)
-
-            )
-        )
-    )
-)
+;(defmacro my-and (&rest expr)
+;    (begin
+;    (print expr)
+;    (cond
+;        ((null expr) (print "emptylist") t)
+;        ((null (cdr expr)) (print "one element") ,(car expr))
+;        (else `(if ,(car expr) (my-and ,@(cdr expr)))
+;        )
+;    ))
+;)
+;(defmacro my-cond (&rest branches)
+;    (if (null branches)
+;        nil
+;        (let (
+;                (part-1 (car branches))
+;                (last (cdr branches))
+;                (condition (car part-1))
+;                (body (cdr part-1))
+;            )
+;            `(if ,condition (begin ,@body)
+;                (my-cond ,@last)
+;
+;            )
+;        )
+;    )
+;)
 (defmacro when (condition &rest body)
     `(if ,condition (begin ,@body ) nil)
 )
@@ -59,15 +59,17 @@
 (defmacro incr (var) `(begin (set! ,var (1+ ,var)) ,var))
 (defmacro decr (var) `(begin (set! ,var (1- ,var)) ,var))
 
-(defmacro mk-counter (name)
+(defmacro mk-counter (name &key (start 0) (increment 1))
   (let ((pre-plus (intern (format "{}+" name)))    ;; Erzeugt z.B. zähler-1+
         (pre-minus (intern (format "{}-" name)))   ;; Erzeugt z.B. zähler-1-
         (post-plus (intern (format "{}++" name)))    ;; Erzeugt z.B. zähler-1+
         (post-minus (intern (format "{}--" name)))   ;; Erzeugt z.B. zähler-1-
         (get (intern (format "get-{}" name)))) ;; Erzeugt z.B. get-zähler-1
-    `(let ((counter 0))
-       (defun ,pre-plus () (incr counter))
-       (defun ,pre-minus () (decr counter))
-       (defun ,post-plus () (let ((old counter)) (incr counter) old))
-       (defun ,post-minus () (let ((old counter)) (decr counter) old))
+    `(let ((counter ,start))
+       (defun ,pre-plus () (begin (set! counter (+ counter ,increment)) counter))
+       (defun ,pre-minus () (begin (set! counter (- counter ,increment)) counter))
+       (defun ,post-plus () (let ((old counter)) (set! counter
+         (+ counter ,increment)) old))
+       (defun ,post-minus () (let ((old counter)) (set! counter
+         (- counter ,increment)) old))
        (defun ,get () counter))))

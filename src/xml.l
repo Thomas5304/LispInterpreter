@@ -17,20 +17,6 @@
        " "))
     )
 
-
-;(defmacro xml (key-attr &rest body)
-;  `(let* ((data ',key-attr)
-;         (key (if (list? data) (car data) data))
-;         (attr (if (list? data) (cdr data) '()))
-;         )
-;     (print-indent (+ "<" key ,@(make-attr-assign attr) ">"))
-;     (let* ((indent (+ indent 2))
-;           )
-;       ,@body
-;       )
-;     (print-indent (+ "</" key ">"))
-;     )
-;  )
                                         ;
 (defmacro xml (key-attr &rest body)
   (let* ((is-list (list? key-attr))

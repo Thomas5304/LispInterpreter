@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 import traceback
 import argparse
+import readline
 
 import displayDRF
 from tokenParse import tokenize, Tokenize_file, tokenize_file, Symbol, atom, is_list, is_symbol, parse
@@ -204,7 +205,7 @@ def lisp_interpreter(args, repl = True):
                 prompt = "....> "
 
             line = input(prompt)
-            buffer += line
+            buffer += "\n" + line
 
             while True:
                 end_idx = first_complete_expr(buffer)
@@ -215,6 +216,8 @@ def lisp_interpreter(args, repl = True):
                 #print(f"buffer '{buffer}'")
 
                 if not expr_text:
+                    if expr_text == "":
+                        break
                     continue
 
                 token_generator = tokenize(expr_text)
