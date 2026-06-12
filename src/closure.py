@@ -6,6 +6,8 @@ from typing import Callable, Any, Iterable, Generator, TypeVar
 import importlib
 import tabulate
 
+import tokenParse
+
 
 last_results_key = "&"
 last_input_key = "%"
@@ -426,6 +428,13 @@ def eval_intern(name):
         raise TypeError(f"{name} is not a string")
     return Symbol(name)
 
+
+global_gensym_counter = 0
+def buildin_gensym(env, name=None):
+    global global_gensym_counter
+    global_gensym_counter+=1
+    return tokenParse.Symbol(f"#:{name}_{global_gensym_counter}" if isinstance(name,str) else f"#:G_{global_gensym_counter}")
+
 def is_keyword(kw):
     return isinstance(kw, str) and kw.startswith(':')
 
@@ -806,6 +815,7 @@ specialforms = {
     'macroexpand':   eval_macroexpand,
     'include':       eval_include,
     'get-stack':     print_stacks,
+    'gensym':        buildin_gensym,
 }
 
 def eval_lisp(env, expression):

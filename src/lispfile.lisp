@@ -59,9 +59,12 @@
 (defmacro progn (&rest body) `(begin ,@body))
 (defun dont-quit () (set! __.QUIT.__ nil))
 
+(defmacro swap (var1 var2) (let ((tmp (gensym )))
+    `(let ((,tmp ,var1)) (set! ,var1 ,var2) (set! ,var2 ,tmp) (list ,var1 ,var2))
+  ))
 
 
-(defmacro mk-counter (name &key (start 0) (increment 1))
+((defmacro mk-counter (name &key (start 0) (increment 1))
   (let ((pre-plus (intern (format "++{}" name)))    ;; Erzeugt z.B. zähler-1+
         (pre-minus (intern (format "--{}" name)))   ;; Erzeugt z.B. zähler-1-
         (post-plus (intern (format "{}++" name)))    ;; Erzeugt z.B. zähler-1+
