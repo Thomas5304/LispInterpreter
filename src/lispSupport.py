@@ -1,6 +1,7 @@
 
 import tokenParse
 import closure
+import traceback
 
 
 def lisp_format(fmt, *args):
