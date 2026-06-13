@@ -315,9 +315,8 @@ def generate_lpp(lyp, tag, displayName, lpp):
 
 def generate_lyp(lyphandle, displayName = None):
 
-    if not displayName:
-        if len(displayNames)==1:
-            displayName = list(displayNames)[0]
+    if not displayName and len(displayNames)==1:
+        displayName = list(displayNames)[0]
     if not displayName:
         raise KeyError("No display name")
 
