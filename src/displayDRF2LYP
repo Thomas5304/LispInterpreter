@@ -75,14 +75,18 @@ def main() -> None:
     if errorstate:
         exit(1)
 
-
-    lisp.lisp_interpreter(args, repl = args.continue_repl,
-        vars= (
-            ("use-display-drf", args.displayDRF),
-            ("use-techfile-tf", args.techfile),
-            ("keywords-to-ignore", args.ignore_keywords),
+    try:
+        lisp.lisp_interpreter(args, repl = args.continue_repl,
+            vars= (
+                ("use-display-drf", args.displayDRF),
+                ("use-techfile-tf", args.techfile),
+                ("keywords-to-ignore", args.ignore_keywords),
+            )
         )
-    )
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(1)
+        
     displayDRF.createLayertable(str(Path(args.layerMap).absolute()))
 
     if args.output_file is None:
