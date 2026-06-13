@@ -877,12 +877,14 @@ def eval_lisp(env, expression):
                 func = env.get(function)
         else:
             func = function
+            
         if isinstance(func, FunctionDef):
             return func(*values)
         elif callable(func):
             return func(*values)
         else:
             raise ValueError(f"unknown function {function}")
+            
     except ValueError as ve:
         print(f"{ve}\n in {lispSupport.print_lisp_recursive(expression)}")
         #traceback.print_exc()
