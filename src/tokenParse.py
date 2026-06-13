@@ -8,7 +8,7 @@ import traceback
 
 
 
-def tokenize(s: str)->Generator[str, None, None]:
+def tokenize(s: str)->Generator[Any, None, None]:
     i = 0
     while i < len(s):
         c = s[i]
