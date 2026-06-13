@@ -27,7 +27,8 @@ class Env:
 
     def set(self, name, value, *, need_env = False):
         self.data[name] = value
-        self.need_env[name] = True
+        if need_env:
+            self.need_env[name] = True
 
     def needs_env(self, name):
         if name in self.need_env.keys():
