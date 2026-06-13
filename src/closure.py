@@ -4,7 +4,7 @@ import traceback
 from pathlib import Path
 from typing import Callable, Any, Iterable, Generator, TypeVar
 import importlib
-import tabulate
+import tabulate  # pyright: ignore[reportMissingModuleSource]
 from functools import partial
 
 import tokenParse
@@ -486,7 +486,7 @@ def macroexpand(env, ast, depth=-1):
             pass
 
 
-        if is_macro(val):
+        if val is not None and is_macro(val):
             macro : Macro = val
 
             raw_args = ast[1:]
