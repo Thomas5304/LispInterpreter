@@ -1,10 +1,8 @@
 #!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
 from typing import Callable, Any, Iterable, Generator, TypeVar, Protocol
-from dataclasses import dataclass, field
 import os
 import sys
 from pathlib import Path
-import traceback
 
 
 

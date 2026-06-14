@@ -8,18 +8,14 @@ from dataclasses import dataclass, field
 import os
 import sys
 from pathlib import Path
-import traceback
+import debugSupport 
 import argparse
 import readline
 
-import displayDRF
 from tokenParse import tokenize, Tokenize_file, tokenize_file, Symbol, atom, is_list, is_symbol, parse
-
-#from displayDRF import printStipple
 
 import closure
 import lispSupport
-import tokenParse
 
 
 def first_complete_expr(s: str):
@@ -137,36 +133,22 @@ def parse_and_run(main_env, token_generator, debug_level = 0, functionMode = Fal
     try:
         #print(parsed_lisp)
         closure.run(parsed_lisp, main_env)
-    except TypeError as te:
-        print(f"Error: {te}\n===============\n")
-        if debug_level:
-            lispSupport.print_lisp_recursive(parsed_lisp)
-            traceback.print_exc()
-            print(f"===============\n")
-    except NameError as ne:
-        print(f"Error: {ne}\n===============\n")
-        if debug_level:
-            lispSupport.print_lisp_recursive(parsed_lisp)
-            traceback.print_exc()
-            print(f"===============\n")
-    except ValueError as ve:
-        print(f"Error: {ve}\n===============\n")
-        if debug_level:
-            lispSupport.print_lisp_recursive(parsed_lisp)
-            traceback.print_exc()
-            print(f"===============\n")
+    except (TypeError, NameError, NameError, closure.ClosureError) as e:
+        debugSupport.print_exception_errorprint_exception_error(parsed_lisp, e)
+
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("lispfiles", nargs="*")
+    parser.add_argument("--debug", type=int, dest="debug_level", action = "store", default=0, help="Set debug level")
 
     return parser.parse_args()
 
 
 def lisp_interpreter(args, repl = True, vars={}):
-    debug_level = 1
+    debug_level = args.debug_level
     main_env = closure.Env()
     main_env.init_env()
     main_env.set("__.QUIT.__", not repl)
@@ -229,6 +211,8 @@ def lisp_interpreter(args, repl = True, vars={}):
 def main() -> None:
     errorstate = False
     args = parse_arguments()
+    debugSupport.set_print_exc_level(args.debug_level)
+    debugSupport.set_debug_level(args.debug_level)
 
     lisp_interpreter(args, repl = True)
     

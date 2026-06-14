@@ -1,3 +1,4 @@
+import debugSupport
 import lispSupport
 from tokenParse import tokenize, tokenize_file, Symbol, atom, is_list, is_symbol, parse
 import traceback
@@ -9,6 +10,8 @@ from functools import partial
 
 import tokenParse
 
+import math
+
 
 last_results_key = "&"
 last_input_key = "%"
@@ -16,7 +19,11 @@ max_number_of_last_keys = 3
 last_results_keys = list((last_results_key * (n+1) for n in range(max_number_of_last_keys)))
 last_input_keys = list((last_input_key * (n+1) for n in range(max_number_of_last_keys)))
 
+class ClosureError(Exception):
+    def __init__(self, m):
+        super().__init__(m)
 
+        
 class Env:
     def __init__(self, parent = None):
         self.data = {}
@@ -145,6 +152,13 @@ class Env:
         self.set('make-hash-table', builtin_make_hash_table)
         self.set('gethash', builtin_gethash)
         self.set('puthash', builtin_puthash)
+
+        for name in dir(math):
+            obj = getattr(math, name)
+            if callable(obj):
+                self.set(name, obj)
+            elif isinstance(obj, (float, int)):
+                self.set(name, obj)
         
 
     def overwrite(self, name, value):
@@ -298,8 +312,8 @@ class FunctionBase:
         # ---------------------------
         while i < len(self.params):
             if arg_i >= len(args):
-                breakpoint()
-                raise Exception("Missing positional argument")
+                #breakpoint()
+                raise ClosureError("Missing positional argument")
 
             env.set(self.params[i], args[arg_i])
             i += 1
@@ -332,7 +346,7 @@ class FunctionBase:
                 arg_i += 1
 
                 if arg_i >= len(args):
-                    raise Exception("Keyword without value")
+                    raise ClosureError("Keyword without value")
 
                 value = args[arg_i]
                 arg_i += 1
@@ -361,7 +375,7 @@ class FunctionBase:
         if self.rest_name:
             env.set(self.rest_name, args[arg_i:])
         elif arg_i < len(args):
-            raise Exception("Too many arguments")
+            raise ClosureError("Too many arguments")
 
         return env
 
@@ -483,7 +497,7 @@ def macroexpand(env, ast, depth=-1):
         val = None
         try:
             val= env.get(head)
-        except Exception:
+        except NameError:
             pass
 
 
@@ -563,8 +577,8 @@ def define_function(env, name, params, body):
         func = FunctionDef(env, params, body)
         env.setglob(name, func)
     except NameError as ne:
-        print(f"function {name} not defined: {ne}")
-        traceback.print_exc()
+        debugSupport.print_exception_errorprint_exception_error(name, ne)
+        raise
 
 def while_loop(env, cond_expr, *body_exprs):
     last_val = None
@@ -573,8 +587,8 @@ def while_loop(env, cond_expr, *body_exprs):
             for expr in body_exprs:
                 last_val = eval_lisp(env, expr)
         except Exception as e:
-            #print(e)
-            traceback.print_exc()
+            debugSupport.print_exception_errorprint_exception_error(expr, e)
+            raise
     return last_val
 
 def defmacro(env, name, params, body):
@@ -688,7 +702,7 @@ def eval_quasiquote(env, expr):
             values = eval_lisp(env, item[1])
 
             if not isinstance(values, (list, tuple)):
-                raise Exception(
+                raise ClosureError(
                     f"unquote-splicing requires list {item[1]} -> {values}"
                 )
 
@@ -886,15 +900,9 @@ def eval_lisp(env, expression):
         else:
             raise ValueError(f"unknown function {function}")
             
-    except ValueError as ve:
-        print(f"{ve}\n in {lispSupport.print_lisp_recursive(expression)}")
-        #traceback.print_exc()
+    except (ValueError, Exception) as e:
+        debugSupport.print_exception_errorprint_exception_error(expression, e)
         raise
-    except Exception as e:
-        print(f"{e}\n in {lispSupport.print_lisp_recursive(expression)}")
-        #traceback.print_exc()
-        raise
-
 
 def push_last_info_stack(env, value, letter, num=3):
     def forwardpush(env, letter, num):
@@ -922,14 +930,10 @@ def run(lisp_tree : list[Any], env:Env):
                 if not repeat_command:
                     push_last_info_stack(env, e, last_input_key, max_number_of_last_keys)
                 push_last_info_stack(env, result, last_results_key, max_number_of_last_keys)
-        except ValueError as ve:
-            print(f"{ve}\n in {lispSupport.print_lisp_recursive(e)}")
-            #traceback.print_exc()
+        except (ValueError, Exception) as exc:
+            debugSupport.print_exception_errorprint_exception_error(e, exc)
             raise
-        except Exception as exc:
-            print(f"{exc}\n in {lispSupport.print_lisp_recursive(e)}")
-            #traceback.print_exc()
-            raise
+
 
         if env.containsglob(last_results_key) and env.getglob(last_results_key) is not None:
             print(lispSupport.print_lisp_recursive(env.getglob(last_results_key)))
