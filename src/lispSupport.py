@@ -61,7 +61,7 @@ def div(*args):
     if l == 0:
         raise ValueError("sub with no argument")
     result = args[0]
-    for arg in args:
+    for arg in args[1:]:
         result /= arg
     return result
 
