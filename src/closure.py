@@ -152,6 +152,8 @@ class Env:
         self.set('make-hash-table', builtin_make_hash_table)
         self.set('gethash', builtin_gethash)
         self.set('puthash', builtin_puthash)
+        self.set('max', max)
+        self.set('min', min)
 
         for name in dir(math):
             obj = getattr(math, name)
@@ -567,7 +569,7 @@ def print_and_eval(env, *args):
     return evaluated
 
 def create_lambda(env, *args):
-    params, body = args
+    params, *body = args
     return FunctionDef(env, params, body)
 
 def define_function(env, name, params, body):

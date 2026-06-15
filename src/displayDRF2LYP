@@ -15,7 +15,7 @@ import displayDRF
 from tokenParse import tokenize, Tokenize_file, tokenize_file, Symbol, atom, is_list, is_symbol, parse
 
 #from displayDRF import printStipple
-
+import debugSupport
 import closure
 import lispSupport
 import tokenParse
@@ -55,6 +55,9 @@ def main() -> None:
     errorstate = False
     args = parse_arguments(macrofile=programpath / "read-displayDRF.l", displayreadfile=programpath / "displayDRF-Macros.l")
 
+    debugSupport.print_exc_level = 1
+    debugSupport.debug_level = 1
+    
     if args.repl_only:
         lisp.lisp_interpreter(args, repl = True)
         return
