@@ -587,7 +587,7 @@ def while_loop(env, cond_expr, *body_exprs):
             for expr in body_exprs:
                 last_val = eval_lisp(env, expr)
         except Exception as e:
-            debugSupport.print_exception_errorprint_exception_error(expr, e)
+            debugSupport.print_exception_errorprint_exception_error(body_expr, e)
             raise
     return last_val
 
