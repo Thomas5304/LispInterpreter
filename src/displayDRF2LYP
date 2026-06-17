@@ -42,6 +42,8 @@ def parse_arguments(macrofile, displayreadfile):
     parser.add_argument("--macros",  dest = "macrofile", action="store", default=macrofile, help=f"Overwrite lisp macro file (default: {macrofile})")
     parser.add_argument("--readdrf", dest = "readdrf",   action="store", default=displayreadfile, help=f"Overwrite lisp display read file (default: {displayreadfile})")
 
+    parser.add_argument("--debug", type=int, dest="debug_level", action = "store", default=0, help="Set debug level")
+
     return parser.parse_args()
 
 
@@ -55,8 +57,8 @@ def main() -> None:
     errorstate = False
     args = parse_arguments(macrofile=programpath / "read-displayDRF.l", displayreadfile=programpath / "displayDRF-Macros.l")
 
-    debugSupport.print_exc_level = 1
-    debugSupport.debug_level = 1
+    debugSupport.set_print_exc_level(args.debug_level)
+    debugSupport.set_debug_level(args.debug_level)
     
     if args.repl_only:
         lisp.lisp_interpreter(args, repl = True)
