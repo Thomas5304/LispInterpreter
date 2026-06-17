@@ -902,7 +902,7 @@ def eval_lisp(env, expression):
         else:
             raise ValueError(f"unknown function {function}")
             
-    except (ValueError, Exception) as e:
+    except (ValueError, ClosureError, Exception) as e:
         debugSupport.print_exception_errorprint_exception_error(expression, e)
         raise
 
