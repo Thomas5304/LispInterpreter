@@ -21,5 +21,6 @@ def set_debug_level(level):
 
 def print_exception_errorprint_exception_error(parsed_lisp, exc):
     print(f"Error: {exc}\n===============\n")
+    #breakpoint()
     lispSupport.print_lisp_recursive(parsed_lisp)
     print_exc()

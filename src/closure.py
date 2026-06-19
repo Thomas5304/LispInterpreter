@@ -589,7 +589,7 @@ def while_loop(env, cond_expr, *body_exprs):
             for expr in body_exprs:
                 last_val = eval_lisp(env, expr)
         except Exception as e:
-            debugSupport.print_exception_errorprint_exception_error(body_expr, e)
+            debugSupport.print_exception_errorprint_exception_error(body_exprs, e)
             raise
     return last_val
 
@@ -932,7 +932,7 @@ def run(lisp_tree : list[Any], env:Env):
                 if not repeat_command:
                     push_last_info_stack(env, e, last_input_key, max_number_of_last_keys)
                 push_last_info_stack(env, result, last_results_key, max_number_of_last_keys)
-        except (ValueError, Exception) as exc:
+        except (ValueError, ClosureError,Exception) as exc:
             debugSupport.print_exception_errorprint_exception_error(e, exc)
             raise
 

@@ -53,13 +53,13 @@ def main() -> None:
     program = Path(sys.argv[0])
     programpath = program.parent
     programname = program.name
-    
+
     errorstate = False
     args = parse_arguments(macrofile=programpath / "read-displayDRF.l", displayreadfile=programpath / "displayDRF-Macros.l")
 
     debugSupport.set_print_exc_level(args.debug_level)
     debugSupport.set_debug_level(args.debug_level)
-    
+
     if args.repl_only:
         lisp.lisp_interpreter(args, repl = True)
         return
@@ -67,7 +67,7 @@ def main() -> None:
     if not args.displayDRF or not os.path.exists(args.displayDRF):
         print("No display DRF (*.drf) given or does not exists")
         errorstate = True
-        
+
     if not args.layerMap or not os.path.exists(args.layerMap):
         print("No layermap (*.layermap or *.map) given or does not exists")
         errorstate = True
@@ -78,6 +78,7 @@ def main() -> None:
 
 
     if errorstate:
+        print("Errors found")
         exit(1)
 
     try:
@@ -91,7 +92,7 @@ def main() -> None:
     except Exception as e:
         print(f"Error: {e}")
         exit(1)
-        
+
     displayDRF.createLayertable(str(Path(args.layerMap).absolute()))
 
     if args.output_file is None:
@@ -102,6 +103,6 @@ def main() -> None:
         displayDRF.generate_lyp(lyphandle, displayName = args.displayName)
 
     print(f"Lyp file written to {lypfilename.absolute()}")
-    
+
 if __name__ == '__main__':
     main()
