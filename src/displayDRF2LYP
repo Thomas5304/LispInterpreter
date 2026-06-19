@@ -76,7 +76,6 @@ def main() -> None:
         print("No techfile (*.tf) given or does not exists")
         errorstate = True
 
-
     if errorstate:
         print("Errors found")
         exit(1)
