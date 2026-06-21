@@ -939,3 +939,26 @@ def run(lisp_tree : list[Any], env:Env):
 
         if env.containsglob(last_results_key) and env.getglob(last_results_key) is not None:
             print(lispSupport.print_lisp_recursive(env.getglob(last_results_key)))
+
+
+def compile(lisp_tree : list[Any], env:Env, resulthandle):
+    for e in lisp_tree:
+        try:
+            if e is not None:
+                repeat_command = False
+                #print(e)
+                if e in last_input_keys and env.containsglob(e):
+                    e = env.getglob(e)
+                    repeat_command = True
+                #print(e, last_input_keys)
+                result = eval_lisp(env, e)
+                if not repeat_command:
+                    push_last_info_stack(env, e, last_input_key, max_number_of_last_keys)
+                push_last_info_stack(env, result, last_results_key, max_number_of_last_keys)
+        except (ValueError, ClosureError,Exception) as exc:
+            debugSupport.print_exception_errorprint_exception_error(e, exc)
+            raise
+
+
+        if env.containsglob(last_results_key) and env.getglob(last_results_key) is not None:
+            print(lispSupport.print_lisp_recursive(env.getglob(last_results_key)))
