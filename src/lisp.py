@@ -1,8 +1,4 @@
 ##!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
-from cmath import isinf
-from re import L
-import textwrap
-from enum import Enum, auto
 from typing import Callable, Any, Iterable, Generator, TypeVar
 from dataclasses import dataclass, field
 import os
@@ -129,7 +125,7 @@ def first_complete_expr(s: str):
 
         
 def parse_and_run(main_env, token_generator, debug_level = 0, functionMode = False):
-    parsed_lisp = parse(token_generator, program=list(), function_mode = functionMode)
+    parsed_lisp = parse(token_generator, function_mode = functionMode)
     try:
         #print(parsed_lisp)
         closure.run(parsed_lisp, main_env)
@@ -141,14 +137,14 @@ def parse_and_run(main_env, token_generator, debug_level = 0, functionMode = Fal
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("lispfiles", nargs="*")
-    parser.add_argument("--debug", type=int, dest="debug_level", action = "store", default=0, help="Set debug level")
+    _ = parser.add_argument("lispfiles", nargs="*")
+    _ = parser.add_argument("--debug", type=int, dest="debug_level", action = "store", default=0, help="Set debug level")
 
     return parser.parse_args()
 
 
 def lisp_interpreter(args, repl = True, vars={}):
-    debug_level = args.debug_level
+    debug_level:int= args.debug_level
     main_env = closure.Env()
     main_env.init_env()
     main_env.set("__.QUIT.__", not repl)
