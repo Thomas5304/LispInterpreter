@@ -1,9 +1,18 @@
 #!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
-from typing import Callable, Any, Iterable, Generator, TypeVar, Protocol
+from typing import Callable, Any, Iterable, Generator, TypeVar, Protocol, TypeAlias
 import os
 import sys
 from pathlib import Path
 
+class String(str):
+    pass
+
+    
+class Symbol(str):
+    pass
+
+LispObject: TypeAlias = Symbol | str | int | float | bool
+LispExpr: TypeAlias = LispObject | list["LispExpr"]
 
 
 def tokenize(s: str)->Generator[Any, None, None]:
@@ -94,12 +103,9 @@ class Tokenize_file:
 
 
 
-class Symbol(str):
-    pass
-
 def atom(token):
     if isinstance(token, tuple):
-        return token[1]
+        return String(token[1])
     try:
         return int(token)
     except:
@@ -110,8 +116,9 @@ def atom(token):
 
 def is_list(x):return isinstance(x,list)
 def is_symbol(x):return isinstance(x,Symbol)
+def is_string(x):return isinstance(x, String)
 
-def parse(tokens, program = list(), function_mode=False):
+def parse(tokens, function_mode=False) -> list[LispExpr]:
     class TokenStream:
         def __init__(self, generator):
             self.gen = [generator]
@@ -152,7 +159,7 @@ def parse(tokens, program = list(), function_mode=False):
                 self.gen.pop()
             raise ValueError("No further tokenizer")
 
-    def parse_stream(token_stream, function_mode = False):
+    def parse_stream(token_stream, function_mode = False) -> LispExpr:
         token = token_stream.next()
 
         #print(token)
@@ -190,12 +197,13 @@ def parse(tokens, program = list(), function_mode=False):
                 while token_stream.peek() != ')':
                     lst.append(parse_stream(token_stream, function_mode))
                 _ = token_stream.next()  # ')'
-                return (lst)
+                return lst
             else:
                 return atom(token)
 
     #print(f"Parser Mode: {'function_mode' if function_mode else 'S-Expression'}")
     stream = TokenStream(tokens)
+    program = list()
     try:
         while True:
             program.append(parse_stream(stream, function_mode))
