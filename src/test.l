@@ -6,6 +6,7 @@
                              (BitMap      (nth 2 clause)))
                          (print (format "DisplayName: {} StippleName: {}" DisplayName StippleName))
                          (handle-define-stipple StippleName DisplayName BitMap)
+                         (print "finish reading " StippleName)
                          0
                          )
                        )
