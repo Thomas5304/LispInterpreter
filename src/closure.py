@@ -1062,7 +1062,7 @@ def trace_eval(func):
     depth = 0
 
     @wraps(func)
-    def wrapper(expr, env, *args, **kwargs):
+    def wrapper(env, expr, *args, **kwargs):
         nonlocal depth
 
         indent = "  " * depth
@@ -1072,7 +1072,7 @@ def trace_eval(func):
 
         depth += 1
         try:
-            result = func(expr, env, *args, **kwargs)
+            result = func(env, expr, *args, **kwargs)
         finally:
             depth -= 1
 
@@ -1089,7 +1089,7 @@ def fold_constants(env, expression):
     return expression
 
 
-#@trace_eval
+@trace_eval
 def eval_lisp(env, expression):
     try:
         if expression is None:

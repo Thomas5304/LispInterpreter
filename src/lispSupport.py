@@ -161,7 +161,9 @@ def lisp_apply(func, *args):
 #(print-eval (apply + 20 30 '(1 2 3 4 5)))
 
 def print_lisp_recursive_expression(expression):
-    if isinstance(expression, tokenParse.Symbol):
+    if expression is None:
+        return "nil"
+    elif isinstance(expression, tokenParse.Symbol):
         return expression
     elif isinstance(expression, (int, float)):
         return str(expression)
