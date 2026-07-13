@@ -7,10 +7,13 @@ from typing import Callable, Any, Iterable, Generator, TypeVar
 import importlib
 import tabulate  # pyright: ignore[reportMissingModuleSource]
 from functools import partial
+from dataclasses import dataclass
+from functools import wraps
 
 import tokenParse
 
 import math
+
 
 
 last_results_key = "&"
@@ -23,26 +26,43 @@ class ClosureError(Exception):
     def __init__(self, m):
         super().__init__(m)
 
-        
+@dataclass(slots=True)
+class Builtin:
+    fn: Callable | Any
+    need_env: bool = False
+
+    # Eigenschaften für den Optimierer
+    pure: bool = True
+    foldable: bool = True
+
+    associative: bool = False
+    commutative: bool = False
+    idempotent: bool = False
+
+    identity: Any = None
+    absorbing: Any = None
+
 class Env:
     def __init__(self, parent = None):
         self.data = {}
         self.macros = {}
         self.functions = {}
-        self.need_env = {}
         self.parent = parent
 
-    def set(self, name, value, *, need_env = False):
+    def set(self, name, value):
         self.data[name] = value
-        if need_env:
-            self.need_env[name] = True
+
+
+    def get_buildin(self, name):
+        if name in self.functions:
+            return self.functions[name]
+        if self.parent is not None:
+            return self.parent.get_buildin(name)
+        raise NameError(f"unbound symbol: {name}")
+
 
     def needs_env(self, name):
-        if name in self.need_env.keys():
-            return True
-        if self.parent is not None:
-            return self.parent.needs_env(name)
-        return False
+        return self.get_buildin(name).need_env
 
     def get(self, name):
         if name == "t":
@@ -64,7 +84,7 @@ class Env:
             return self.parent.contains(name)
         return False
 
-    def setmacro(self, name, value):
+    def setmacro(self, name, value, global_env=True):
         self.macros[name] = value
 
     def getmacro(self, name):
@@ -77,91 +97,277 @@ class Env:
         if name in self.macros:
             return self.macros[name]
         if self.parent is not None:
-            return self.parent.get(name)
+            return self.parent.getmacro(name)
         #no error, just not defined!
         return None
 
 
 
-    def setfunction(self, name, value):
-        self.functions[name] = value
+    def setfunction(self, name, value,
+                    *,
+                    global_env=False,
+                    need_env=False,
+                    pure=True,
+                    foldable=True,
+                    associative=False,
+                    commutative=False,
+                    idempotent=False,
+                    identity=None,
+                    absorbing=None):
+
+        if global_env and self.parent is not None:
+            self.parent.setfunction(name, value,
+                global_env = global_env,
+                need_env=need_env,
+                pure=pure,
+                foldable=foldable,
+                associative=associative,
+                commutative=commutative,
+                idempotent=idempotent,
+                identity=identity,
+                absorbing=absorbing,)
+        else:
+            self.functions[name] = Builtin(
+                fn=value,
+                need_env=need_env,
+                pure=pure,
+                foldable=foldable,
+                associative=associative,
+                commutative=commutative,
+                idempotent=idempotent,
+                identity=identity,
+                absorbing=absorbing,
+            )
 
     def getfunction(self, name):
-        if name == "t":
-            return True
-
-        if name == "nil":
-            return None
-
-        if name in self.functions:
-            return self.functions[name]
-        if self.parent is not None:
-            return self.functions.get(name)
-        #no error, just not defined!
-        return None
+        buildin = self.get_buildin(name)
+        return buildin.fn
 
 
     def init_env(self, debug_level=0):
         self.debug_level = debug_level
+
+        # Konstanten
         self.set('nil', False)
         self.set('t', True)
         self.set('function-mode', False)
-        self.set('enable-function-mode',  lambda : self.set('function-mode', True))
-        self.set('disable-function-mode', lambda : self.set('function-mode', False))
-        self.set('format', lispSupport.lisp_format)
-        self.set('string-append', lambda *args: ''.join(str(arg) for arg in args))
-        self.set('print', print)
-        self.set('print-lisp', lispSupport.print_lisp_recursive)
-        self.set('list', lispSupport.create_list)
-        self.set('cons', lispSupport.eval_append)
-        self.set('append', lispSupport.eval_append)
-        self.set('and', lambda *args: all(a for a in args))
-        self.set('or', lambda *args: any(a for a in args))
-        self.set('zip', lambda *a: list(zip(*a)))
-        self.set('null', lambda a: len(a)==0)
-        self.set('atom?', lambda a: "t" if not is_list(a) else "nil")
-        self.set('list?', lambda a: "t" if is_list(a) else "nil")
-        self.set('integer?', lambda a: "t" if isinstance(a, int) else "nil")
-        self.set('number?', lambda a: "t" if isinstance(a, float) else "nil")
-        self.set('function?', lambda a: "t" if callable(a) else "nil")
-        self.set('+'   , lispSupport.add)
-        self.set('-'   , lispSupport.sub)
-        self.set('*'   , lispSupport.mult)
-        self.set('/'   , lispSupport.div)
-        self.set('>='  , lispSupport.greaterequal)
-        self.set('>'   , lispSupport.greater)
-        self.set('<='  , lispSupport.lessequal)
-        self.set('<'   , lispSupport.less)
-        self.set('=='  , lispSupport.equal)
-        self.set('!=', lambda a, b: not lispSupport.equal(a, b))
-        self.set('not' , lambda x:  not x )
-        self.set('car' , lispSupport.car)
-        self.set('cdr' , lispSupport.cdr)
-        self.set('print-env', lambda e: print(str(e)), need_env = True)
-        self.set('map', lispSupport.lisp_map)
-        self.set('mapcar', lispSupport.lisp_mapcar)
-        self.set('mapcan', lispSupport.lisp_mapcan)
-        self.set('apply', lispSupport.lisp_apply)
-        self.set('exit', lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0))
-        self.set('function', lambda f: f)
-        self.set('quit', lambda : self.setglob("__.QUIT.__", True))
-        #self.set('debug', lambda debug_level=None: set_debug_level(debug_level))
-        #self.set('symbol-name', symbol_name)
-        self.set('intern', eval_intern)
-        #self.set('length', lambda x: len(x) if is_list(x) else 0)
-        self.set('make-hash-table', builtin_make_hash_table)
-        self.set('gethash', builtin_gethash)
-        self.set('puthash', builtin_puthash)
-        self.set('max', max)
-        self.set('min', min)
 
+        # Interpreterfunktionen (nicht faltbar)
+        self.setfunction('enable-function-mode',
+                lambda: self.set('function-mode', True),
+                pure=False, foldable=False)
+
+        self.setfunction('disable-function-mode',
+                lambda: self.set('function-mode', False),
+                pure=False, foldable=False)
+
+        self.setfunction('quit',
+                lambda: self.setglob("__.QUIT.__", True),
+                pure=False, foldable=False)
+
+        self.setfunction('exit',
+                lambda exit_code=0: exit(exit_code) if exit_code is not None else exit(0),
+                pure=False, foldable=False)
+
+        # Ausgabe
+        self.setfunction('print',
+                print,
+                pure=False, foldable=False)
+
+        self.setfunction('print-lisp',
+                lispSupport.print_lisp_recursive,
+                pure=False, foldable=False)
+
+        # Stringfunktionen
+        self.setfunction('format',
+                lispSupport.lisp_format,
+                pure=True, foldable=True)
+
+        self.setfunction('string-append',
+                lambda *args: ''.join(str(arg) for arg in args),
+                pure=True, foldable=True,
+                associative=True,
+                identity="")
+
+        # Listen
+        self.setfunction('list',
+                lispSupport.create_list,
+                pure=True, foldable=True)
+
+        self.setfunction('cons',
+                lispSupport.eval_append,
+                pure=True, foldable=True)
+
+        self.setfunction('append',
+                lispSupport.eval_append,
+                pure=True, foldable=True,
+                associative=True,
+                identity=[])
+
+        self.setfunction('car',
+                lispSupport.car,
+                pure=True, foldable=True)
+
+        self.setfunction('cdr',
+                lispSupport.cdr,
+                pure=True, foldable=True)
+
+        # Boolesche Operatoren
+        self.setfunction('and',
+                lambda *args: all(args),
+                pure=True,
+                foldable=True,
+                associative=True,
+                commutative=True,
+                identity=True,
+                idempotent=True)
+
+        self.setfunction('or',
+                lambda *args: any(args),
+                pure=True,
+                foldable=True,
+                associative=True,
+                commutative=True,
+                identity=False,
+                idempotent=True)
+
+        self.setfunction('not',
+                lambda x: not x,
+                pure=True,
+                foldable=True)
+
+        # Typprüfungen
+        self.setfunction('null', lambda a: len(a) == 0,
+                pure=True, foldable=True)
+
+        self.setfunction('atom?', lambda a: "t" if not is_list(a) else "nil",
+                pure=True, foldable=True)
+
+        self.setfunction('list?', lambda a: "t" if is_list(a) else "nil",
+                pure=True, foldable=True)
+
+        self.setfunction('integer?', lambda a: "t" if isinstance(a, int) else "nil",
+                pure=True, foldable=True)
+
+        self.setfunction('number?', lambda a: "t" if isinstance(a, (int, float)) else "nil",
+                pure=True, foldable=True)
+
+        self.setfunction('function?', lambda a: "t" if callable(a) else "nil",
+                pure=True, foldable=True)
+
+        # Arithmetik
+        self.setfunction('+',
+                lispSupport.add,
+                pure=True,
+                foldable=True,
+                associative=True,
+                commutative=True,
+                identity=0)
+
+        self.setfunction('-',
+                lispSupport.sub,
+                pure=True,
+                foldable=True)
+
+        self.setfunction('*',
+                lispSupport.mult,
+                pure=True,
+                foldable=True,
+                associative=True,
+                commutative=True,
+                identity=1,
+                absorbing=0)
+
+        self.setfunction('/',
+                lispSupport.div,
+                pure=True,
+                foldable=True)
+
+        self.setfunction('max',
+                max,
+                pure=True,
+                foldable=True,
+                associative=True,
+                commutative=True)
+
+        self.setfunction('min',
+                min,
+                pure=True,
+                foldable=True,
+                associative=True,
+                commutative=True)
+
+        # Vergleiche
+        self.setfunction('>',  lispSupport.greater,      pure=True, foldable=True)
+        self.setfunction('<=', lispSupport.lessequal,    pure=True, foldable=True)
+        self.setfunction('>=', lispSupport.greaterequal, pure=True, foldable=True)
+        self.setfunction('<',  lispSupport.less,         pure=True, foldable=True)
+        self.setfunction('==', lispSupport.equal,        pure=True, foldable=True)
+
+        self.setfunction('!=',
+                lambda a, b: not lispSupport.equal(a, b),
+                pure=True,
+                foldable=True)
+
+        # Sonstige
+        self.setfunction('zip',
+                lambda *a: list(zip(*a)),
+                pure=True, foldable=True)
+
+        self.setfunction('map', lispSupport.lisp_map,
+                pure=True, foldable=False)
+
+        self.setfunction('mapcar', lispSupport.lisp_mapcar,
+                pure=True, foldable=False)
+
+        self.setfunction('mapcan', lispSupport.lisp_mapcan,
+                pure=True, foldable=False)
+
+        self.setfunction('apply', lispSupport.lisp_apply,
+                pure=True, foldable=False)
+
+        self.setfunction('function',
+                lambda f: f,
+                pure=True,
+                foldable=True)
+
+        self.setfunction('intern',
+                eval_intern,
+                pure=False,
+                foldable=False)
+
+        self.setfunction('print-env',
+                lambda e: print(str(e)),
+                need_env=True,
+                pure=False,
+                foldable=False)
+
+        # Hash-Tabellen
+        self.setfunction('make-hash-table',
+                builtin_make_hash_table,
+                pure=False,
+                foldable=False)
+
+        self.setfunction('gethash',
+                builtin_gethash,
+                pure=False,
+                foldable=False)
+
+        self.setfunction('puthash',
+                builtin_puthash,
+                pure=False,
+                foldable=False)
+
+        # Math-Modul
         for name in dir(math):
             obj = getattr(math, name)
             if callable(obj):
+                self.setfunction(name,
+                        obj,
+                        pure=True,
+                        foldable=True)
+            elif isinstance(obj, (int, float)):
                 self.set(name, obj)
-            elif isinstance(obj, (float, int)):
-                self.set(name, obj)
-        
 
     def overwrite(self, name, value):
         if name in self.data.keys():
@@ -185,7 +391,7 @@ class Env:
         if self.parent is None:
             return self.get(name)
         return self.parent.getglob(name)
-        
+
     def needs_envglob(self, name):
         if self.parent is  None:
             return self.needs_env(name)
@@ -205,7 +411,7 @@ class Env:
         ret = ""
         if self.parent is not None:
             ret += str(self.parent)
-        return ret + str(self.data)
+        return ret + " Variables: " + str(self.data) + " Functions: " + str(self.functions.keys()) + " Macros: " + str(self.macros.keys())
 
 
 def print_stacks(env, *args):
@@ -247,7 +453,7 @@ def print_stacks(env, *args):
                     results+="nil"
 
             results+="\n\n"
-        
+
     return results
 
 def find_key_in_all_params(params, key):
@@ -255,22 +461,22 @@ def find_key_in_all_params(params, key):
         return params.index(key)
     return None
 
-    
+
 class FunctionBase:
     optional_keyword = "&optional"
     key_keyword = "&key"
     rest_keyword = "&rest"
 
-        
+
     def __init__(self, closure, all_params) -> None:
         self.optional = []
         self.key_params = {}
         self.rest_name = None
-        
+
         optional_idx = find_key_in_all_params(all_params, FunctionBase.optional_keyword)
         key_idx = find_key_in_all_params(all_params, FunctionBase.key_keyword)
         rest_idx = find_key_in_all_params(all_params, FunctionBase.rest_keyword)
-        
+
         if rest_idx is not None:
             if rest_idx>len(all_params)-2:
                 SyntaxError(f"function with &rest is missing name for rest parameter")
@@ -298,7 +504,7 @@ class FunctionBase:
                 if is_list(opt):
                     self.optional.append(opt)
                 else:
-                    self.optional.append([opt, None]) 
+                    self.optional.append([opt, None])
             all_params = all_params[:optional_idx]
 
         self.params = all_params
@@ -393,12 +599,12 @@ def builtin_gethash(*args):
 
 def builtin_make_hash_table():
     return LispHashTable()
-    
+
 def builtin_puthash(*args):
     key, value, table = args
 
     table.data[key] = value
-    return value    
+    return value
 
 class FunctionDef(FunctionBase):
     def __init__(self, closure, all_params, body) -> None:
@@ -484,7 +690,7 @@ def defun_python(env, lisp_name, params, py_name_sym, py_namespace=None):
         raise NameError(f"Python function '{py_name}' not found in provided namespace")
 
     bridge = PythonBridgeFunction(env, params, py_func)
-    env.setglob(lisp_name, bridge)
+    env.setfunction(lisp_name, bridge, global_env=True)
 
 
 def macroexpand(env, ast, depth=-1):
@@ -498,7 +704,7 @@ def macroexpand(env, ast, depth=-1):
         head = ast[0]
         val = None
         try:
-            val= env.get(head)
+            val= env.getmacro(head)
         except NameError:
             pass
 
@@ -575,9 +781,9 @@ def create_lambda(env, *args):
 def define_function(env, name, params, body):
     try:
         #print(f"try to add function {name} ({params}) {body}")
-        env.setglob(name, None)
+        env.setfunction(name, None, global_env=True)
         func = FunctionDef(env, params, body)
-        env.setglob(name, func)
+        env.setfunction(name, func, global_env=True)
     except NameError as ne:
         debugSupport.print_exception_errorprint_exception_error(name, ne)
         raise
@@ -595,7 +801,7 @@ def while_loop(env, cond_expr, *body_exprs):
 
 def defmacro(env, name, params, body):
     proc = FunctionDef(env, params, body)
-    env.setglob(name, Macro(proc))
+    env.setmacro(name, Macro(proc), global_env = True)
 
 def macrolet(env, macros, *expressions):
     # create new environment for local macro defs
@@ -605,7 +811,7 @@ def macrolet(env, macros, *expressions):
     for macro in macros:
         name, params, body = macro
         proc = FunctionDef(env, params, body)
-        env.set(name, Macro(proc))
+        env.setmacro(name, Macro(proc), global_env = False)
 
     ret = None
 
@@ -794,7 +1000,7 @@ def load_and_parse_lisp_file(env, filename):
     if not filepath.exists():
         return "nil"
 
-    parsed_lisp = parse(tokenize_file(filepath), program=list(), function_mode=env.get('function-mode'))
+    parsed_lisp = parse(tokenize_file(filepath), function_mode=env.get('function-mode'))
 
     return run(parsed_lisp, env)
 
@@ -807,7 +1013,7 @@ def eval_include(env, filename):
         FileExistsError(f"filename: {filepath} does not exist")
 
     print(f"filename: {filepath}")
-    parsed_lisp = parse(tokenize_file(filepath), program=list(), function_mode=env.get('function-mode'))
+    parsed_lisp = parse(tokenize_file(filepath), function_mode=env.get('function-mode'))
     result = None
     for expr in parsed_lisp:
         result = eval_lisp(env, expr)
@@ -850,6 +1056,40 @@ specialforms = {
     'gensym':        buildin_gensym,
 }
 
+
+
+def trace_eval(func):
+    depth = 0
+
+    @wraps(func)
+    def wrapper(expr, env, *args, **kwargs):
+        nonlocal depth
+
+        indent = "  " * depth
+        print(f"{indent}=> ", end="")
+        print(lispSupport.print_lisp_recursive(expr))
+        print()
+
+        depth += 1
+        try:
+            result = func(expr, env, *args, **kwargs)
+        finally:
+            depth -= 1
+
+        print(f"{indent}<= ", end="")
+        print(lispSupport.print_lisp_recursive(result))
+        print()
+
+        return result
+
+    return wrapper
+
+
+def fold_constants(env, expression):
+    return expression
+
+
+#@trace_eval
 def eval_lisp(env, expression):
     try:
         if expression is None:
@@ -879,6 +1119,7 @@ def eval_lisp(env, expression):
 
         if isinstance(function, list):
             function = eval_lisp(env, function)
+            print(f"function {repr(function)} - {type(function)}: ", lispSupport.print_lisp_recursive(function))
 
         if function in specialforms:
             return specialforms[function](env, *args)
@@ -889,20 +1130,20 @@ def eval_lisp(env, expression):
         if isinstance(function, str):
             needs_env = env.needs_env(function)
             if needs_env:
-                func = partial(env.get(function), env)
+                func = partial(env.getfunction(function), env)
             else:
-                func = env.get(function)
+                func = env.getfunction(function)
         else:
             func = function
-            
+
         if isinstance(func, FunctionDef):
             return func(*values)
         elif callable(func):
             return func(*values)
         else:
             raise ValueError(f"unknown function {function}")
-            
-    except (ValueError, ClosureError, Exception) as e:
+
+    except (ValueError, ClosureError, NameError) as e:
         debugSupport.print_exception_errorprint_exception_error(expression, e)
         raise
 
@@ -910,13 +1151,15 @@ def push_last_info_stack(env, value, letter, num=3):
     def forwardpush(env, letter, num):
         if num<1:
             return
-        
+
         if env.containsglob(letter*(num-1)):
             env.setglob(letter*num, env.getglob(letter*(num-1)))
         forwardpush(env, letter, num-1)
-            
+
     forwardpush(env, letter, num)
     env.setglob(letter, value)
+
+
 
 def run(lisp_tree : list[Any], env:Env):
     for e in lisp_tree:
@@ -932,7 +1175,7 @@ def run(lisp_tree : list[Any], env:Env):
                 if not repeat_command:
                     push_last_info_stack(env, e, last_input_key, max_number_of_last_keys)
                 push_last_info_stack(env, result, last_results_key, max_number_of_last_keys)
-        except (ValueError, ClosureError,Exception) as exc:
+        except (ValueError, ClosureError, NameError) as exc:
             debugSupport.print_exception_errorprint_exception_error(e, exc)
             raise
 
@@ -955,7 +1198,7 @@ def compile(lisp_tree : list[Any], env:Env, resulthandle):
                 if not repeat_command:
                     push_last_info_stack(env, e, last_input_key, max_number_of_last_keys)
                 push_last_info_stack(env, result, last_results_key, max_number_of_last_keys)
-        except (ValueError, ClosureError,Exception) as exc:
+        except (ValueError, ClosureError, NameError) as exc:
             debugSupport.print_exception_errorprint_exception_error(e, exc)
             raise
 
