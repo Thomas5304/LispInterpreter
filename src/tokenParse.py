@@ -145,7 +145,7 @@ def parse(tokens, function_mode=False) -> list[LispExpr]:
             return self.buffer
 
         def get_dir(self):
-            if isinstance(self.gen, Tokenize_file):
+            if isinstance(self.gen[-1], Tokenize_file):
                 return self.gen[-1].parent
             return Path(os.getcwd())
 
