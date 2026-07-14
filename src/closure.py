@@ -609,11 +609,16 @@ def builtin_puthash(*args):
 class FunctionDef(FunctionBase):
     def __init__(self, closure, all_params, body) -> None:
         super().__init__(closure, all_params)
+        #print("FunctionDef.__init__ body ", repr(body))
         self.body = body
 
     def __call__(self, *values):
         new_env = self.bind_params(*values)
-        return eval_lisp(new_env, self.body)
+        #print("FunctionDef.body", repr(self.body))
+        result = None
+        for expr in self.body:
+            result = eval_lisp(new_env, expr)
+        return result
 
 
 # Hilfsfunktionen zur Konversion (falls noetig)
@@ -648,10 +653,14 @@ class Macro:
         self.proc = proc
 
     def expand(self, env, *raw_args):
-        #print("Macro.expand 1:", raw_args)
-        result = self.proc(*raw_args)
-        #print("Macro.expand 2:", result)
-        return result
+        try:
+            #print("Macro.expand 1:", raw_args)
+            result = self.proc(*raw_args)
+            #print("Macro.expand 2:", result)
+            return result
+        except Exception as e:
+            #print(f"Exception in Macro: {type(e).__name__} {e}")
+            raise
 
 def is_macro(x):return isinstance(x, Macro)
 
@@ -715,6 +724,10 @@ def macroexpand(env, ast, depth=-1):
             raw_args = ast[1:]
 
             ast = macro.expand(env, *raw_args)
+            #print("expanded macro")
+            #print(repr(ast))
+            #print(lispSupport.print_lisp_recursive(ast))
+            #print()
 
             continue
 
@@ -774,11 +787,10 @@ def print_and_eval(env, *args):
     print(f"{toprint} evaluates to {evaluated}")
     return evaluated
 
-def create_lambda(env, *args):
-    params, *body = args
+def create_lambda(env, params, *body):
     return FunctionDef(env, params, body)
 
-def define_function(env, name, params, body):
+def define_function(env, name, params, *body):
     try:
         #print(f"try to add function {name} ({params}) {body}")
         env.setfunction(name, None, global_env=True)
@@ -787,6 +799,29 @@ def define_function(env, name, params, body):
     except NameError as ne:
         debugSupport.print_exception_errorprint_exception_error(name, ne)
         raise
+
+
+def defmacro(env, name, params, *body):
+    proc = FunctionDef(env, params, body)
+    env.setmacro(name, Macro(proc), global_env = True)
+
+def macrolet(env, macros, *expressions):
+    # create new environment for local macro defs
+    # like a let
+    env = Env(env)
+
+    for macro in macros:
+        name, params, *body = macro
+        proc = FunctionDef(env, params, body)
+        env.setmacro(name, Macro(proc), global_env = False)
+
+    ret = None
+
+    for expression in expressions:
+        ret = eval_lisp(env, expression)
+
+    return ret
+
 
 def while_loop(env, cond_expr, *body_exprs):
     last_val = None
@@ -799,26 +834,6 @@ def while_loop(env, cond_expr, *body_exprs):
             raise
     return last_val
 
-def defmacro(env, name, params, body):
-    proc = FunctionDef(env, params, body)
-    env.setmacro(name, Macro(proc), global_env = True)
-
-def macrolet(env, macros, *expressions):
-    # create new environment for local macro defs
-    # like a let
-    env = Env(env)
-
-    for macro in macros:
-        name, params, body = macro
-        proc = FunctionDef(env, params, body)
-        env.setmacro(name, Macro(proc), global_env = False)
-
-    ret = None
-
-    for expression in expressions:
-        ret = eval_lisp(env, expression)
-
-    return ret
 
 def begin(env, *args):
     expressions = args
@@ -938,59 +953,6 @@ def eval_quasiquote(env, expr):
     return result
 
 
-def quasiquote(env, ast, depth=0):
-    """
-    ast: AST node (atom or list)
-    env: environment used to eval unquote parts
-    depth: nesting level of quasiquote (1 = we are in quasiquote)
-    Returns: AST with unquotes evaluated (for macro expansion)
-    """
-    #print(f"quasiquote {lispSupport.print_lisp_recursive(ast)}, depth:{depth}")
-    # atoms: just return quoted atom as-is (symbols/numbers)
-    if not is_list(ast):
-        return ast
-
-    # empty list stays empty
-    if len(ast) == 0:
-        return []
-
-    # If head is 'quasiquote', increase depth and recurse into its body
-    if is_symbol(ast[0]) and ast[0] == 'quasiquote':
-        # (quasiquote X) -> treat inner with depth+1
-        return ['quasiquote', quasiquote(env, ast[1], depth+1)]
-
-    # Handle unquote only when depth == 1 (i.e. this quasiquote level)
-    if is_symbol(ast[0]) and ast[0] == 'unquote':
-        if depth == 1:
-            # evaluate the inner expression in env and return the result (AST)
-            return eval_lisp(env, ast[1])
-        else:
-            # inside deeper quasiquote: treat as literal unquote form
-            return ['unquote', quasiquote(env, ast[1], depth-1)]
-
-    # Handle unquote-splicing, only valid inside list context when depth == 1
-    if is_symbol(ast[0]) and ast[0] == 'unquote-splicing':
-        if depth == 1:
-            # evaluate to a list that will later be spliced
-            return ('__UNQUOTE_SPLICED__', eval_lisp(env, ast[1]))
-        else:
-            return ['unquote-splicing', quasiquote(env, ast[1], depth-1)]
-
-    # General list processing: iterate elements, handle splicing markers
-    result = []
-    for elem in ast:
-        q = quasiquote(env, elem, depth)
-        # If element returned a special splicing marker, splice its value into result
-        ##print(f"for q {lispSupport.print_lisp_recursive(q)}")
-        if isinstance(q, tuple) and q and q[0] == '__UNQUOTE_SPLICED__':
-            spliced = q[1]
-            if not isinstance(spliced, list):
-                raise TypeError("unquote-splicing must evaluate to a list")
-            result.extend(spliced)
-        else:
-            result.append(q)
-    return result
-
 def unquote(env, *args):
     result = eval_lisp(env, *args)
     return result
@@ -1089,7 +1051,7 @@ def fold_constants(env, expression):
     return expression
 
 
-@trace_eval
+#@trace_eval
 def eval_lisp(env, expression):
     try:
         if expression is None:
@@ -1109,17 +1071,19 @@ def eval_lisp(env, expression):
             raise ValueError(f"invalid value {expression}")
 
         #keep_expression = expression
+        #print(f"expression before macroexpand {expression[0]}")
         expression = macroexpand(env, expression)
+        #print(f"expression after macroexpand {expression[0]}")
         if expression is None:
             #breakpoint()
             return None
-
+        #print(f"after expand {repr(expression)} - {type(expression)}: ", lispSupport.print_lisp_recursive(expression))
         function = expression[0]
         args = expression[1:]
 
         if isinstance(function, list):
             function = eval_lisp(env, function)
-            print(f"function {repr(function)} - {type(function)}: ", lispSupport.print_lisp_recursive(function))
+            #print(f"function {repr(function)} - {type(function)}: ", lispSupport.print_lisp_recursive(function))
 
         if function in specialforms:
             return specialforms[function](env, *args)
@@ -1141,6 +1105,12 @@ def eval_lisp(env, expression):
         elif callable(func):
             return func(*values)
         else:
+            #print("UNKNOWN FUNCTION")
+            #print("Expression:")
+            lispSupport.print_lisp_recursive(expression)
+            #print()
+            #print("Function:", repr(function), type(function))
+            #print("Func:", repr(func), type(func))
             raise ValueError(f"unknown function {function}")
 
     except (ValueError, ClosureError, NameError) as e:
