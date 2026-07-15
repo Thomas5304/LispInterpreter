@@ -45,3 +45,4 @@
 (let ((function-mode t))
  (load "small.display.drf")
   )
+  (quit)
