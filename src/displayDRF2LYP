@@ -60,6 +60,9 @@ def main() -> None:
     debugSupport.set_print_exc_level(args.debug_level)
     debugSupport.set_debug_level(args.debug_level)
 
+    args.lispfiles.append(args.readdrf)
+    args.lispfiles.append(args.macrofile)
+
     if args.repl_only:
         lisp.lisp_interpreter(args, repl = True)
         return
