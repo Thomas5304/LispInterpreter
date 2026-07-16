@@ -1,4 +1,4 @@
-(defun-python handle-define-stipple (name display stipple) printStipple displayDRF)
+(defun-python handle-define-stipple (name display stipple) createStipple displayDRF)
 (defmacro drDefineStipple (&rest clauses)
   `(begin ,@(mapcar ,(lambda (clause)
                        (let ((DisplayName (nth 0 clause))
