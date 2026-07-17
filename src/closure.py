@@ -804,6 +804,7 @@ def define_function(env, name, params, *body):
 def defmacro(env, name, params, *body):
     proc = FunctionDef(env, params, body)
     env.setmacro(name, Macro(proc), global_env = True)
+    print("defmacro:",name,"Params:",params,"body:",lispSupport.print_lisp_recursive(body))
 
 def macrolet(env, macros, *expressions):
     # create new environment for local macro defs
@@ -983,8 +984,11 @@ def eval_include(env, filename):
 
 
 def eval(env, args):
+    print("args:",lispSupport.print_lisp_recursive(args))
     value = eval_lisp(env, args)
+    print("value:",lispSupport.print_lisp_recursive(value))
     result = eval_lisp(env, value)
+    print("result:",lispSupport.print_lisp_recursive(result))
     return result
 
 specialforms = {
