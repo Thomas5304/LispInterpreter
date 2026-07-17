@@ -26,9 +26,9 @@ class ClosureError(Exception):
     def __init__(self, m):
         super().__init__(m)
 
-@dataclass(slots=True)
+@dataclass
 class Builtin:
-    fn: Callable | Any
+    fn:Callable
     need_env: bool = False
 
     # Eigenschaften für den Optimierer

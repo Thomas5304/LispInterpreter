@@ -1,5 +1,5 @@
 #!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
-from typing import Callable, Any, Iterable, Generator, TypeVar, Protocol, TypeAlias
+from typing import Callable, Any, Iterable, Generator, TypeVar, Protocol
 import os
 import sys
 from pathlib import Path
@@ -10,9 +10,6 @@ class String(str):
     
 class Symbol(str):
     pass
-
-LispObject: TypeAlias = Symbol | str | int | float | bool
-LispExpr: TypeAlias = LispObject | list["LispExpr"]
 
 
 def tokenize(s: str)->Generator[Any, None, None]:
@@ -118,7 +115,7 @@ def is_list(x):return isinstance(x,list)
 def is_symbol(x):return isinstance(x,Symbol)
 def is_string(x):return isinstance(x, String)
 
-def parse(tokens, function_mode=False) -> list[LispExpr]:
+def parse(tokens, function_mode=False):
     class TokenStream:
         def __init__(self, generator):
             self.gen = [generator]
@@ -159,7 +156,7 @@ def parse(tokens, function_mode=False) -> list[LispExpr]:
                 self.gen.pop()
             raise ValueError("No further tokenizer")
 
-    def parse_stream(token_stream, function_mode = False) -> LispExpr:
+    def parse_stream(token_stream, function_mode = False):
         token = token_stream.next()
 
         #print(token)
