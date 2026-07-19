@@ -1,0 +1,22 @@
+##!/tools/pdtooling/packages/VirtPythonEnv/pkg_synopsys/bin/python3
+import os
+import sys
+from pathlib import Path
+
+import debugSupport
+
+import lispSupport
+
+import lisp
+
+
+def main() -> None:
+    errorstate = False
+    args = lisp.parse_arguments()
+    debugSupport.set_print_exc_level(args.debug_level)
+    debugSupport.set_debug_level(args.debug_level)
+
+    lisp.lisp_interpreter(args, repl = True)
+
+if __name__ == '__main__':
+    main()
