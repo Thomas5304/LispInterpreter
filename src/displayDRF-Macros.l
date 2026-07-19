@@ -5,15 +5,15 @@
 (print "reading displayDRF-Macros.l")
 
 (print "ignoring these keywords" keywords-to-ignore)
-(do-list (name keywords-to-ignore)
-         (begin
-          (print "Ignoring" name)
-  (eval
-   `(defmacro ,name (&rest args)
-      (print "ignoring" ',name)))))
 
-(print-env)
+(defun define-ignored-list (&rest names)
+  (do-list (name names)
+    (print "create ignore-macro for " name)
+    (eval `(defmacro ,name (&rest args) nil))
+  )
+)
 
+(apply #'define-ignored-list keywords-to-ignore)
 
 (defmacro with-ignore-sub-keywords (names &rest body)
   `(macrolet

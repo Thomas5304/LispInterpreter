@@ -26,6 +26,10 @@ class ClosureError(Exception):
     def __init__(self, m):
         super().__init__(m)
 
+class LispError(Exception):
+    def __init__(self, m):
+        super().__init__(m)
+
 @dataclass
 class Builtin:
     fn:Callable
@@ -85,7 +89,10 @@ class Env:
         return False
 
     def setmacro(self, name, value, global_env=True):
-        self.macros[name] = value
+        if global_env and self.parent is not None:
+            self.parent.setmacro(name,value,global_env=True)
+        else:
+            self.macros[name] = value
 
     def getmacro(self, name):
         if name == "t":
@@ -325,11 +332,6 @@ class Env:
 
         self.setfunction('apply', lispSupport.lisp_apply,
                 pure=True, foldable=False)
-
-        self.setfunction('function',
-                lambda f: f,
-                pure=True,
-                foldable=True)
 
         self.setfunction('intern',
                 eval_intern,
@@ -804,7 +806,7 @@ def define_function(env, name, params, *body):
 def defmacro(env, name, params, *body):
     proc = FunctionDef(env, params, body)
     env.setmacro(name, Macro(proc), global_env = True)
-    print("defmacro:",name,"Params:",params,"body:",lispSupport.print_lisp_recursive(body))
+    #print("defmacro:",name,"Params:",params,"body:",lispSupport.print_lisp_recursive(body))
 
 def macrolet(env, macros, *expressions):
     # create new environment for local macro defs
@@ -975,7 +977,7 @@ def eval_include(env, filename):
     if not filepath.exists():
         FileExistsError(f"filename: {filepath} does not exist")
 
-    print(f"filename: {filepath}")
+    #print(f"filename: {filepath}")
     parsed_lisp = parse(tokenize_file(filepath), function_mode=env.get('function-mode'))
     result = None
     for expr in parsed_lisp:
@@ -983,12 +985,21 @@ def eval_include(env, filename):
     return result
 
 
+def eval_function(env, name):
+    if is_symbol(name):
+        return env.getfunction(name)
+    if is_list(name) and name[0] == "lambda":
+        return eval_lisp(env, name)
+    raise LispError("Illigal FUNCTION form")
+    
+
+
 def eval(env, args):
-    print("args:",lispSupport.print_lisp_recursive(args))
+    #print("args:",lispSupport.print_lisp_recursive(args))
     value = eval_lisp(env, args)
-    print("value:",lispSupport.print_lisp_recursive(value))
+    #print("value:",lispSupport.print_lisp_recursive(value))
     result = eval_lisp(env, value)
-    print("result:",lispSupport.print_lisp_recursive(result))
+    #print("result:",lispSupport.print_lisp_recursive(result))
     return result
 
 specialforms = {
@@ -1020,8 +1031,8 @@ specialforms = {
     'include':       eval_include,
     'get-stack':     print_stacks,
     'gensym':        buildin_gensym,
+    'function':      eval_function,
 }
-
 
 
 def trace_eval(func):
@@ -1117,7 +1128,7 @@ def eval_lisp(env, expression):
             #print("Func:", repr(func), type(func))
             raise ValueError(f"unknown function {function}")
 
-    except (ValueError, ClosureError, NameError) as e:
+    except (ValueError, ClosureError, NameError, LispError) as e:
         debugSupport.print_exception_errorprint_exception_error(expression, e)
         raise
 
@@ -1149,7 +1160,7 @@ def run(lisp_tree : list[Any], env:Env):
                 if not repeat_command:
                     push_last_info_stack(env, e, last_input_key, max_number_of_last_keys)
                 push_last_info_stack(env, result, last_results_key, max_number_of_last_keys)
-        except (ValueError, ClosureError, NameError) as exc:
+        except (ValueError, ClosureError, NameError, LispError) as exc:
             debugSupport.print_exception_errorprint_exception_error(e, exc)
             raise
 
@@ -1172,7 +1183,7 @@ def compile(lisp_tree : list[Any], env:Env, resulthandle):
                 if not repeat_command:
                     push_last_info_stack(env, e, last_input_key, max_number_of_last_keys)
                 push_last_info_stack(env, result, last_results_key, max_number_of_last_keys)
-        except (ValueError, ClosureError, NameError) as exc:
+        except (ValueError, ClosureError, NameError, LispError) as exc:
             debugSupport.print_exception_errorprint_exception_error(e, exc)
             raise
 
