@@ -1002,6 +1002,136 @@ def eval(env, args):
     #print("result:",lispSupport.print_lisp_recursive(result))
     return result
 
+
+def trace_eval(func):
+    depth = 0
+
+    @wraps(func)
+    def wrapper(env, expr, *args, **kwargs):
+        nonlocal depth
+
+        indent = "  " * depth
+        print(f"{indent}=> ", end="")
+        print(lispSupport.print_lisp_recursive(expr))
+        print()
+
+        depth += 1
+        try:
+            result = func(env, expr, *args, **kwargs)
+        finally:
+            depth -= 1
+
+        print(f"{indent}<= ", end="")
+        print(lispSupport.print_lisp_recursive(result))
+        print()
+
+        return result
+
+    return wrapper
+
+
+
+def optimize(env, expr):
+    # Atome
+    if not isinstance(expr, list):
+        return expr
+
+    if len(expr) == 0:
+        return expr
+
+    op = expr[0]
+
+    # Spezialformen nicht anfassen
+    if not isinstance(op, Symbol):
+        return [optimize(env, x) for x in expr]
+
+    fn = env.getfunction(op)
+    if fn is None:
+        return [optimize(env, x) for x in expr]
+
+    # Argumente optimieren
+    args = [optimize(env, x) for x in expr[1:]]
+
+    #
+    # 1. Assoziative Ausdrücke flach machen
+    #
+    if fn.associative:
+        flat = []
+        for a in args:
+            if (isinstance(a, list)
+                    and len(a) > 0
+                    and a[0] == op):
+                flat.extend(a[1:])
+            else:
+                flat.append(a)
+        args = flat
+
+    #
+    # 2. Absorbierendes Element
+    #
+    if fn.absorbing is not None:
+        for a in args:
+            if a == fn.absorbing:
+                return fn.absorbing
+
+    #
+    # 3. Neutrales Element entfernen
+    #
+    if fn.identity is not None:
+        args = [a for a in args if a != fn.identity]
+
+    #
+    # 4. Idempotent
+    #
+    if fn.idempotent:
+        unique = []
+        for a in args:
+            if a not in unique:
+                unique.append(a)
+        args = unique
+
+    #
+    # 5. Konstanten sammeln
+    #
+    const_args = []
+    other_args = []
+
+    for a in args:
+        if isinstance(a, (int, float, str)):
+            const_args.append(a)
+        else:
+            other_args.append(a)
+
+    #
+    # 6. Konstanten zusammenfassen
+    #
+    if fn.foldable and len(const_args) >= 2:
+        value = fn(*const_args)
+        other_args.insert(0, value)
+
+    args = other_args
+
+    #
+    # 7. Nur noch Konstante?
+    #
+    if fn.foldable and all(isinstance(a, (int, float, str)) for a in args):
+        return fn(*args)
+
+    #
+    # 8. Keine Argumente mehr
+    #
+    if len(args) == 0:
+        if fn.identity is not None:
+            return fn.identity
+
+    #
+    # 9. Ein Argument übrig
+    #
+    if len(args) == 1 and fn.identity is not None:
+        return args[0]
+
+    return [op] + args
+
 specialforms = {
     'if':            ifthenelse,
     'define':        define,
@@ -1032,38 +1162,8 @@ specialforms = {
     'get-stack':     print_stacks,
     'gensym':        buildin_gensym,
     'function':      eval_function,
+    'optimize':      optimize,
 }
-
-
-def trace_eval(func):
-    depth = 0
-
-    @wraps(func)
-    def wrapper(env, expr, *args, **kwargs):
-        nonlocal depth
-
-        indent = "  " * depth
-        print(f"{indent}=> ", end="")
-        print(lispSupport.print_lisp_recursive(expr))
-        print()
-
-        depth += 1
-        try:
-            result = func(env, expr, *args, **kwargs)
-        finally:
-            depth -= 1
-
-        print(f"{indent}<= ", end="")
-        print(lispSupport.print_lisp_recursive(result))
-        print()
-
-        return result
-
-    return wrapper
-
-
-def fold_constants(env, expression):
-    return expression
 
 
 #@trace_eval
