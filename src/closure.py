@@ -46,6 +46,9 @@ class Builtin:
     identity: Any = None
     absorbing: Any = None
 
+    def __call__(*args):
+        fn(*args)
+
 class Env:
     def __init__(self, parent = None):
         self.data = {}
@@ -1045,7 +1048,7 @@ def optimize(env, expr):
     if not isinstance(op, Symbol):
         return [optimize(env, x) for x in expr]
 
-    fn = env.getfunction(op)
+    fn = env.get_buildin(op)
     if fn is None:
         return [optimize(env, x) for x in expr]
 
@@ -1188,6 +1191,8 @@ def eval_lisp(env, expression):
         #keep_expression = expression
         #print(f"expression before macroexpand {expression[0]}")
         expression = macroexpand(env, expression)
+        breakpoint()
+        expression = optimize(env, expression)
         #print(f"expression after macroexpand {expression[0]}")
         if expression is None:
             #breakpoint()
