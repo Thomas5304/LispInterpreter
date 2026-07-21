@@ -3,61 +3,10 @@
 * Run examples
 
 #+begin_src shell :results output
-python3 displayDRF2LYP --map mnsc05prim.layermap --drf display_1.drf --display display --tech mnsc05prim.tf --ignore viaDefs constraintGroups
+python3 displayDRF2LYP --map mnsc05prim.layermap --drf display_1.drf --display display --tech mnsc05prim.tf --ignore viaDefs layerRules
 #+end_src
 
 #+RESULTS:
-#+begin_example
-displayDRF2LYP located in .
-reading displayDRF-Macros.l
-finished reading displayDRF-Macros.l
-reading read-displayDRF.l
-reading DRF file display_1.drf
-filename: /home/dilling/Projekte/LispInterpreter/LispInterpreter/src/display_1.drf
-reading DRF file mnsc05prim.tf
-filename: /home/dilling/Projekte/LispInterpreter/LispInterpreter/src/mnsc05prim.tf
-Error: unbound symbol: poly1
-===============
-
-poly1
-Error: unbound symbol: poly1
-===============
-
-(M1_POLY1 poly1 metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0))
-Error: unbound symbol: poly1
-===============
-
-(standardViaDefs (M1_POLY1 poly1 metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0)) (M2_M1 metal1 metal2 (via 0.55 0.55 0) (1 1 (0.5 0.5)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0)) (M3_M2 metal2 metal3 (via2 0.6 0.6 0) (1 1 (0.55 0.55)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0)) (M1_ND pn metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.15 0.15) (0.3 0.3) (0 0) (0 0) (0 0)) (M1_PD pn metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0) pplus (0.7 0.7)) (M1_wellcon pn metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.25 0.25) (0.3 0.3) (0 0) (0 0) (0 0) well (0.4 0.4)) (M1_subcon pn metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0) pplus (0.4 0.4)))
-Error: unbound symbol: poly1
-===============
-
-(viaDefs (standardViaDefs (M1_POLY1 poly1 metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0)) (M2_M1 metal1 metal2 (via 0.55 0.55 0) (1 1 (0.5 0.5)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0)) (M3_M2 metal2 metal3 (via2 0.6 0.6 0) (1 1 (0.55 0.55)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0)) (M1_ND pn metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.15 0.15) (0.3 0.3) (0 0) (0 0) (0 0)) (M1_PD pn metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0) pplus (0.7 0.7)) (M1_wellcon pn metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.25 0.25) (0.3 0.3) (0 0) (0 0) (0 0) well (0.4 0.4)) (M1_subcon pn metal1 (cut 0.5 0.5 0) (1 1 (0.5 0.5)) (0.3 0.3) (0.3 0.3) (0 0) (0 0) (0 0) pplus (0.4 0.4))) (customViaDefs (M1_Pdocon mnsc05prim viaM1Pdocon via pn metal1 1) (M1_Ndocon mnsc05prim viaM1Ndocon via pn metal1 1) (M1_phvwellcon mnsc05prim viaM1phvwellcon via pn metal1 1)))
-Error: unbound symbol: poly1
-===============
-
-(include displayDRF)
-Error: unbound symbol: poly1
-===============
-
-(let ((function-mode t)) (include displayDRF))
-Error: unbound symbol: poly1
-===============
-
-(begin (print (+ reading DRF file  displayDRF)) (let ((function-mode t)) (include displayDRF)))
-Error: unbound symbol: poly1
-===============
-
-(load-display-drf use-techfile-tf)
-Error: unbound symbol: poly1
-===============
-
-(load-display-drf use-techfile-tf)
-Error: unbound symbol: poly1
-===============
-
-((print reading read-displayDRF.l) (load-display-drf use-display-drf) (load-display-drf use-techfile-tf) (print finish reading read-displayDRF.l))
-Lyp file written to /home/dilling/Projekte/LispInterpreter/LispInterpreter/src/mnsc05prim.lyp
-#+end_example
 
 #+begin_src shell :results output
 python3 displayDRF2LYP --map memsprim.layermap --drf display_mems.drf --tech mems.tf --ignore viaDefs constraintGroups --display display
