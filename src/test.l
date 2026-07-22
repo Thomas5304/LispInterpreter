@@ -1,3 +1,11 @@
+
+(defun optionaltest (a &optional (x 10) (y 2 y-supplied-p))
+  (print "a" a)
+  (print "x" x)
+  (print "y" y "supplied" y-supplied-p)
+  )
+
+
 (defun-python handle-define-stipple (name display stipple) createStipple displayDRF)
 (defmacro drDefineStipple (&rest clauses)
   `(begin ,@(mapcar (lambda (clause)
@@ -45,4 +53,4 @@
 (let ((function-mode t))
  (load "small.display.drf")
   )
-  (quit)
+  ;(quit)
