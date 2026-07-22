@@ -165,10 +165,12 @@ def print_lisp_recursive_expression(expression):
         return "nil"
     elif isinstance(expression, tokenParse.Symbol):
         return expression
+    elif isinstance(expression, tokenParse.String):
+        return '"' + expression + '"'
     elif isinstance(expression, (int, float)):
         return str(expression)
     elif isinstance(expression, str):
-        return expression
+        return '"' + expression + '"'
     elif isinstance(expression, (tuple, list)):
         ret = "("
         ret += " ".join(print_lisp_recursive(e) for e in expression)
