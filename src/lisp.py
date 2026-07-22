@@ -139,6 +139,7 @@ def parse_arguments():
 
     _ = parser.add_argument("lispfiles", nargs="*")
     _ = parser.add_argument("--debug", type=int, dest="debug_level", action = "store", default=0, help="Set debug level")
+    _ = parser.add_argument("--optimize", dest="optimize", action = "store_true", default=False, help="Use optimizer")
 
     return parser.parse_args()
 
@@ -153,6 +154,7 @@ def lisp_interpreter(args, repl = True, vars={}):
     programname = program.name
     print(f"{programname} located in {programpath}")
 
+    main_env.set("__.OPTIMIZE.__", args.optimize)
     for var in vars:
         main_env.set(var[0], var[1])
 
