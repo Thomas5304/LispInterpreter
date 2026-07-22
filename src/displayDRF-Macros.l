@@ -4,7 +4,7 @@
 ;(print "keywords to ignore" keywords-to-ignore)
 (print "reading displayDRF-Macros.l")
 
-(print "ignoring these keywords" keywords-to-ignore)
+;(print "ignoring these keywords" keywords-to-ignore)
 
 (defun define-ignored-list (&rest names)
   (do-list (name names)
@@ -189,9 +189,36 @@
      )
   )
 
-(defun handle-define-control_techParams (name value) 0);(print name "user unit" unitname "DBUPerUU" units))
-(defun handle-define-control_viewTypeUnits (name unitname units) 0);(print name "user unit" unitname "DBUPerUU" units))
-(defun handle-define-control_mfgGridResolution (grid) 0);(print "mfgGridResolution" grid))
+
+(defmacro handle-constraintGroup_connectLayers (operator &rest body)
+  `(let
+       (macrolet (
+                  (leConnectingLayers (pairOfLayer &optional (-byLayer nil) (contactLayer nil))
+                                      (print "connecting " (nth 0 pairOfLayer) "with" (nth 1 pairOfLayer))
+                                      )
+                  )
+           )
+     )
+  )
+
+(defmacro constraintGroups (&rest body)
+  `(let ()
+     (with-ignore-sub-keywords (foundry
+                                leCEconstraintGroup
+                                highlightConnectedSetup)
+                               (macrolet ((connectLayers (-operator operator &rest params)
+                                                         `(handle-constraintGroup_connectLayers operator ',params )
+                                                         )
+                                          )
+                                 ,@body
+                                 )
+                               )
+     )
+  )
+
+(defun handle-define-control_techParams (name value) 1);(print name "user unit" unitname "DBUPerUU" units))
+(defun handle-define-control_viewTypeUnits (name unitname units) 2);(print name "user unit" unitname "DBUPerUU" units))
+(defun handle-define-control_mfgGridResolution (grid) 3);(print "mfgGridResolution" grid))
 
 
 
@@ -237,10 +264,10 @@
   )
 
 
-(defun handle-define-layerDefinitions_techPurposes (purposeName purposeNum abbreviation) 0)
-(defun handle-define-layerDefinitions_techLayers (layerName layerNum abbreviation) 0)
-(defun handle-define-layerDefinitions_techLayerPurposePriorities (layerName purposeName) 0)
-(defun handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid) 0)
+(defun handle-define-layerDefinitions_techPurposes (purposeName purposeNum abbreviation) 4)
+(defun handle-define-layerDefinitions_techLayers (layerName layerNum abbreviation) 5)
+(defun handle-define-layerDefinitions_techLayerPurposePriorities (layerName purposeName) 6)
+(defun handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid) 7)
 (defun-python handle-define-layerDefinitions_techDisplays (layerName purposeName  packet  vis sel   con2ChgLy   drgEnbl  valid) createTechDisplays displayDRF)
 
 (defmacro layerDefinitions (&rest body)
@@ -288,11 +315,11 @@
 
 
 
-(defun handle-define-layerRules_functions (layer function maskNumber ) 0)
-(defun handle-define-layerRules_mfgResolutions (layer mfgResolution ) 0) 
+(defun handle-define-layerRules_functions (layer function maskNumber ) 8)
+(defun handle-define-layerRules_mfgResolutions (layer mfgResolution ) 9) 
     
 
-(defmacro layerRules (&rest body)
+(defmacro layerRules_old (&rest body)
   `(let ()
      (macrolet (
                 ;; Unter-Makro f�r functions
