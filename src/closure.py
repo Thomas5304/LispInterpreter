@@ -1,6 +1,6 @@
 import debugSupport
 import lispSupport
-from tokenParse import tokenize, tokenize_file, Symbol, atom, is_list, is_symbol, parse
+from tokenParse import tokenize, tokenize_file, Symbol, String, atom, is_list, is_symbol, parse
 import traceback
 from pathlib import Path
 from typing import Callable, Any, Iterable, Generator, TypeVar
@@ -173,6 +173,14 @@ class Env:
 
         self.setfunction('quit',
                 lambda: self.setglob("__.QUIT.__", True),
+                pure=False, foldable=False)
+
+        self.setfunction('optimize-expressions',
+                lambda x: self.setglob("__.OPTIMIZE.__", x),
+                pure=False, foldable=False)
+
+        self.setfunction('optimize-p',
+                lambda: self.getglob("__.OPTIMIZE.__"),
                 pure=False, foldable=False)
 
         self.setfunction('exit',
@@ -537,14 +545,21 @@ class FunctionBase:
         # ---------------------------
         j = 0
         while j < len(self.optional):
-            name, default = self.optional[j]
+            supplied_name = None
+            if len(self.optional[j]) >= 3:
+                name, default, supplied_name = self.optional[j]
+            else:
+                name, default = self.optional[j]
 
             if arg_i < len(args) and not is_keyword(args[arg_i]):
                 env.set(name, args[arg_i])
                 arg_i += 1
+                if supplied_name is not None:
+                    env.set(supplied_name, True)
             else:
                 env.set(name, default)
-
+                if supplied_name is not None:
+                    env.set(supplied_name, False)
             j += 1
 
         # ---------------------------
@@ -1033,8 +1048,15 @@ def trace_eval(func):
     return wrapper
 
 
+specialforms = {}
 
+
+def is_specialform(form):
+    return form in specialforms.keys()
+
+#@trace_eval
 def optimize(env, expr):
+    #breakpoint()
     # Atome
     if not isinstance(expr, list):
         return expr
@@ -1045,18 +1067,22 @@ def optimize(env, expr):
     op = expr[0]
 
     # Spezialformen nicht anfassen
-    if not isinstance(op, Symbol):
-        return [optimize(env, x) for x in expr]
+    if is_specialform(op):
+        return expr#[expr[0]] + [optimize(env, x) for x in expr[1:]]
+    
 
-    fn = env.get_buildin(op)
+    try:
+        fn = env.get_buildin(op)
+    except NameError as e:
+        fn = None
     if fn is None:
-        return [optimize(env, x) for x in expr]
+        return [op] + [optimize(env, x) for x in expr[1:]]
 
     # Argumente optimieren
     args = [optimize(env, x) for x in expr[1:]]
-
+    #print(1, args)
     #
-    # 1. Assoziative Ausdrücke flach machen
+    # 1. Assoziative Ausdruecke flach machen
     #
     if fn.associative:
         flat = []
@@ -1069,6 +1095,7 @@ def optimize(env, expr):
                 flat.append(a)
         args = flat
 
+    #print(2, args)
     #
     # 2. Absorbierendes Element
     #
@@ -1077,12 +1104,14 @@ def optimize(env, expr):
             if a == fn.absorbing:
                 return fn.absorbing
 
+    #print(3, args)
     #
     # 3. Neutrales Element entfernen
     #
     if fn.identity is not None:
         args = [a for a in args if a != fn.identity]
 
+    #print(4, args)
     #
     # 4. Idempotent
     #
@@ -1093,6 +1122,7 @@ def optimize(env, expr):
                 unique.append(a)
         args = unique
 
+    #print(5, args)
     #
     # 5. Konstanten sammeln
     #
@@ -1100,26 +1130,32 @@ def optimize(env, expr):
     other_args = []
 
     for a in args:
-        if isinstance(a, (int, float, str)):
+        if isinstance(a, (int, float, String)):
             const_args.append(a)
         else:
             other_args.append(a)
 
+    #print(6.1, const_args)
+    #print(6.2, other_args)
     #
     # 6. Konstanten zusammenfassen
     #
     if fn.foldable and len(const_args) >= 2:
-        value = fn(*const_args)
+        value = fn.fn(*const_args)
         other_args.insert(0, value)
+    elif len(const_args) == 1:
+        other_args.insert(0, const_args[0])
 
     args = other_args
 
+    #print(7, args)
     #
     # 7. Nur noch Konstante?
     #
-    if fn.foldable and all(isinstance(a, (int, float, str)) for a in args):
-        return fn(*args)
+    if fn.foldable and all(isinstance(a, (int, float, String)) for a in args):
+        return fn.fn(*args)
 
+    #print(8, args)
     #
     # 8. Keine Argumente mehr
     #
@@ -1130,10 +1166,11 @@ def optimize(env, expr):
     #
     # 9. Ein Argument übrig
     #
-    if len(args) == 1 and fn.identity is not None:
-        return args[0]
+    #if len(args) == 1 and fn.identity is not None:
+    #    return args[0]
 
     return [op] + args
+
 
 specialforms = {
     'if':            ifthenelse,
@@ -1169,6 +1206,9 @@ specialforms = {
 }
 
 
+
+optimize_expression = True
+
 #@trace_eval
 def eval_lisp(env, expression):
     try:
@@ -1179,7 +1219,7 @@ def eval_lisp(env, expression):
                 return expression
             return env.get(expression)
 
-        if isinstance(expression, str):
+        if isinstance(expression, String):
             return expression
 
         if isinstance(expression, (float,int)):
@@ -1189,11 +1229,29 @@ def eval_lisp(env, expression):
             raise ValueError(f"invalid value {expression}")
 
         #keep_expression = expression
-        #print(f"expression before macroexpand {expression[0]}")
         expression = macroexpand(env, expression)
-        breakpoint()
-        expression = optimize(env, expression)
-        #print(f"expression after macroexpand {expression[0]}")
+        if env.get("__.OPTIMIZE.__"):
+            #print("expression:", lispSupport.print_lisp_recursive(expression))
+            expression = optimize(env, expression)
+            #print(" optimized:", lispSupport.print_lisp_recursive(expression))
+
+            if expression is None:
+                return None
+            if isinstance(expression, Symbol):
+                if is_keyword(expression):
+                    return expression
+                return env.get(expression)
+
+            if isinstance(expression, String):
+                return expression
+
+            if isinstance(expression, (float,int)):
+                return expression
+
+            if not isinstance(expression, (list, tuple)):
+                raise ValueError(f"invalid value {expression}")
+
+
         if expression is None:
             #breakpoint()
             return None
@@ -1205,7 +1263,7 @@ def eval_lisp(env, expression):
             function = eval_lisp(env, function)
             #print(f"function {repr(function)} - {type(function)}: ", lispSupport.print_lisp_recursive(function))
 
-        if function in specialforms:
+        if is_specialform(function):
             return specialforms[function](env, *args)
 
 
@@ -1237,6 +1295,7 @@ def eval_lisp(env, expression):
         debugSupport.print_exception_errorprint_exception_error(expression, e)
         raise
 
+    
 def push_last_info_stack(env, value, letter, num=3):
     def forwardpush(env, letter, num):
         if num<1:
